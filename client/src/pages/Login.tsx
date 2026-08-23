@@ -1,0 +1,14 @@
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { trpc } from "@/lib/trpc";
+
+export default function Login() {
+  const [, navigate] = useLocation();
+  const utils = trpc.useUtils();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const login = trpc.auth.localLogin.useMutation({ onSuccess: async () => { await utils.auth.me.invalidate(); navigate("/"); } });
+  return <main className="login-shell"><section className="login-art"><div className="login-brand"><div className="brand-mark"><span/><span/><span/></div><strong>Smart<span>Analytics</span></strong></div><div className="login-art-copy"><span className="section-kicker">TELECOM INTELLIGENCE PLATFORM</span><h1>See the signal.<br/><em>Move with clarity.</em></h1><p>One command center for network health, customer experience and business impact.</p><div className="login-pulse"><span/><div><b>System pulse</b><small>Secure local workspace ready</small></div></div></div></section><section className="login-card-wrap"><div className="login-card"><div className="login-card-head"><div className="login-icon"><ShieldCheck size={22}/></div><span className="section-kicker">SECURE ACCESS</span><h2>Welcome back</h2><p>Sign in to your operations command center<br/><span>سجّل الدخول إلى مركز عملياتك</span></p></div><form onSubmit={e => { e.preventDefault(); if (username.trim() && password) login.mutate({ username, password }); }}><label><span>Username</span><div className="login-input"><UserRound size={16}/><input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter username"/></div></label><label><span>Password</span><div className="login-input"><LockKeyhole size={16}/><input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password"/></div></label>{login.error && <div className="login-error">Unable to sign in. Check your username and password.</div>}<Button className="login-submit" type="submit" disabled={login.isPending || !username.trim() || !password}>{login.isPending ? "Signing in…" : <>Sign in <ArrowRight size={16}/></>}</Button></form><div className="login-security"><LockKeyhole size={13}/><span>Local session · HttpOnly cookie · RBAC enforced</span></div></div><small className="login-footer">Smart Analytics · Internal operations workspace</small></section></main>;
+}

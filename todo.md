@@ -3,7 +3,7 @@
 - [x] Establish Smart Analytics dark Telecom NOC/GIS design system and responsive shell
 - [x] Add Arabic/English language toggle with RTL/LTR support
 - [x] Build permission-aware sidebar navigation and top command bar
-- [x] Preserve secure OAuth session flow and add server-side authorization helpers
+- [x] Replace OAuth with secure local session flow and add server-side authorization helpers
 - [x] Extend relational schema for telecom analytics, users, roles, permissions, and audit logs
 - [x] Add protected tRPC procedures for dashboard, map, priorities, data sources, audit, and AI
 - [x] Build executive overview KPIs, trends, top priorities, and Fix 5 actions
@@ -16,7 +16,7 @@
 - [x] Add vitest coverage for authorization and analytics procedures
 - [x] Run typecheck, tests, and production build
 - [x] Verify desktop and mobile rendering with screenshots
-- [ ] Save final checkpoint and deliver project version
+- [x] Save final checkpoint and deliver project version
 - [x] Implement permission-derived sidebar/topbar visibility using authenticated user role/permission data
 - [x] Add protected tRPC procedures for data sources/integrations management and authorization checks
 - [x] Improve intelligence map interactions with real filtering/search, clustering, heatmap styling, and map controls
@@ -32,3 +32,36 @@
 - [x] Implement data-driven clustering and heatmap behavior on the map
 - [x] Add integrations management UI and connect validation mutations with feedback states
 - [x] Add loading, restricted, empty, and error states for admin data/user/audit/settings screens
+
+# Scope Change: independent module pages and local authentication
+
+- [x] Add a dedicated local login page without Gmail/OAuth dependency
+- [x] Add server-side local admin authentication with admin/admin bootstrap and session cookie
+- [x] Replace frontend auth assumptions with local session state and logout flow
+- [x] Add independent route/page content for Executive Overview
+- [x] Add independent route/page content for Intelligence Map
+- [x] Add independent route/page content for Network
+- [x] Add independent route/page content for Customer Experience
+- [x] Add independent route/page content for Customers
+- [x] Add independent route/page content for Complaints
+- [x] Add independent route/page content for Infrastructure / Fiber
+- [x] Add independent route/page content for Sales
+- [x] Add independent route/page content for Marketing
+- [x] Add independent route/page content for Business & Revenue
+- [x] Add independent route/page content for Priorities
+- [x] Add independent route/page content for AI Assistant
+- [x] Add independent route/page content for Alerts
+- [x] Add independent route/page content for Reports
+- [x] Add independent route/page content for Data Management
+- [x] Add independent route/page content for User Management
+- [x] Add independent route/page content for System Settings
+- [x] Add independent route/page content for Audit Logs
+- [x] Add tests for local login, admin bootstrap, protected session, and route authorization
+- [x] Verify all module routes on desktop and mobile and save a new checkpoint
+- [x] Remove remaining OAuth-specific frontend wiring from main.tsx and client helpers
+- [x] Create dedicated page components for each module instead of only shared Home conditional rendering
+- [x] Add Vitest coverage for auth.localLogin, ensureLocalAdmin, local session authentication, and route authorization
+- [x] Remove or replace unused OAuth redirect logic in client/src/const.ts
+- [x] Add named dedicated module page exports for each sidebar module, including Executive Overview
+- [x] Test ensureLocalAdmin bootstrap behavior without inserting fixture data
+- [x] Test local session authentication and admin authorization after local login

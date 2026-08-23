@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { scryptSync, timingSafeEqual } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import { aiConversations, InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -75,6 +76,34 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
   }
+}
+
+const LOCAL_ADMIN_USERNAME = "admin";
+const LOCAL_ADMIN_PASSWORD = "admin";
+const LOCAL_ADMIN_SALT = "smart-analytics-local-v1";
+const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) => scryptSync(password, salt, 64).toString("hex");
+
+export async function ensureLocalAdmin() {
+  const db = await getDb();
+  if (!db) return undefined;
+  const existing = await getUserByUsername(LOCAL_ADMIN_USERNAME);
+  if (existing) return existing;
+  await db.insert(users).values({ openId: "local_admin", username: LOCAL_ADMIN_USERNAME, passwordHash: hashLocalPassword(LOCAL_ADMIN_PASSWORD), name: "System Administrator", loginMethod: "local", role: "admin" });
+  return getUserByUsername(LOCAL_ADMIN_USERNAME);
+}
+
+export async function getUserByUsername(username: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  return result[0];
+}
+
+export function verifyLocalPassword(password: string, passwordHash: string | null) {
+  if (!passwordHash) return false;
+  const actual = Buffer.from(hashLocalPassword(password), "hex");
+  const expected = Buffer.from(passwordHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 export async function getUserByOpenId(openId: string) {

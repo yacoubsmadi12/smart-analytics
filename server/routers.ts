@@ -5,7 +5,9 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
-import { createAiConversation, listAiConversations } from "./db";
+import { createAiConversation, ensureLocalAdmin, getUserByUsername, listAiConversations, verifyLocalPassword } from "./db";
+import { sdk } from "./_core/sdk";
+import { ENV } from "./_core/env";
 
 const permissionsByRole: Record<string, string[]> = { admin: ["dashboard.view", "map.view", "network.view", "customers.view", "complaints.view", "infrastructure.view", "sales.view", "marketing.view", "revenue.view", "ai.ask", "ai.export", "data.view", "data.import", "users.manage", "roles.manage", "settings.manage", "audit.view"], user: ["dashboard.view", "map.view", "network.view", "customers.view", "complaints.view", "infrastructure.view", "ai.ask", "ai.export"] };
 
@@ -32,6 +34,15 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    localLogin: publicProcedure.input(z.object({ username: z.string().min(1).max(80), password: z.string().min(1).max(200) })).mutation(async ({ ctx, input }) => {
+      await ensureLocalAdmin();
+      const account = await getUserByUsername(input.username.trim().toLowerCase());
+      if (!account || !verifyLocalPassword(input.password, account.passwordHash)) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid username or password" });
+      const token = await sdk.signSession({ openId: account.openId, appId: ENV.appId, name: account.name || account.username || "Administrator" });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 1000 * 60 * 60 * 12 });
+      return { success: true, user: { name: account.name, role: account.role } } as const;
+    }),
     permissions: protectedProcedure.query(({ ctx }) => ({ role: ctx.user.role, grants: permissionsByRole[ctx.user.role] ?? ["dashboard.view"], menu: permissionsByRole[ctx.user.role]?.map(permission => permission.split(".")[0]) ?? ["dashboard"] })),
     logout: publicProcedure.mutation(({ ctx }) => { const cookieOptions = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 }); return { success: true } as const; }),
   }),
