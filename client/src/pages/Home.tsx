@@ -1087,6 +1087,14 @@ export default function Home() {
   } = trpc.auth.permissions.useQuery(undefined, { enabled: isAuthenticated });
   const role = permissions?.role || user?.role || "user";
   const grants = new Set(permissions?.grants || ["dashboard.view"]);
+  const { data: dashboardSummary } = trpc.dashboard.summary.useQuery(undefined, { enabled: isAuthenticated });
+  const liveKpis = useMemo(() => {
+    if (!dashboardSummary) return kpis;
+    const formatMoney = (value: number) => `$${(value / 1_000_000).toFixed(2)}M`;
+    return kpis.map(item => ({ ...item,
+      value: item.label === "Network Health" ? `${dashboardSummary.networkHealth.toFixed(1)}%` : item.label === "Total Sites" ? dashboardSummary.sites.toLocaleString() : item.label === "Active Customers" ? `${(dashboardSummary.customers / 1_000_000).toFixed(2)}M` : item.label === "Open Complaints" ? dashboardSummary.openComplaints.toLocaleString() : item.label === "CX Risk" ? `${dashboardSummary.cxRisk.toFixed(1)}%` : item.label === "Revenue at Risk" ? formatMoney(dashboardSummary.revenueAtRisk) : item.value,
+    }));
+  }, [dashboardSummary]);
   const {
     data: sources,
     isLoading: sourceLoading,
@@ -1309,7 +1317,7 @@ export default function Home() {
               />
             )}
           <section className="kpi-grid">
-            {kpis.map(k => (
+            {liveKpis.map(k => (
               <div className="kpi-card" key={k.label}>
                 <div className="kpi-top">
                   <span>{k.label}</span>

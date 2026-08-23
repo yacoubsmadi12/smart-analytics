@@ -97,16 +97,16 @@
 
 # Real Data Sources Update
 
-- [ ] Inspect and document Sigma data schema and required source datasets
+- [x] Inspect and document Sigma data schema and required source datasets
 - [x] Add source configuration model for manual upload, API, database, and SFTP methods
 - [x] Add secure server-side ingestion endpoints with validation and audit records
 - [x] Add file upload and schema preview for CSV/XLSX/JSON in Data Management
 - [x] Add API endpoint configuration with secret-backed credentials and test connection action
 - [x] Add SFTP configuration with secret-backed credentials and path validation
 - [x] Add import runs, row validation errors, mapping, and last-sync status
-- [ ] Replace hardcoded analytics preview data with persisted imported source data where available
+- [x] Replace hardcoded analytics preview data with persisted imported source data where available
 - [x] Add tests for ingestion validation, source authorization, mapping, and audit logging
-- [ ] Verify Data Management and source setup flows on desktop/mobile and save checkpoint
+- [x] Verify Data Management and source setup flows on desktop/mobile and save checkpoint
 - [x] Render the real source intake and import history inside the standalone data-management route
 - [x] Ensure standalone Data Management uses live source/import queries instead of static preview rows
 - [x] Re-test the standalone route after wiring the live data surface
@@ -119,7 +119,7 @@
 - [x] Update source status and lastSyncAt after successful import/connection test
 - [x] Add Vitest coverage for connection-test authorization, mapping, and audit persistence
 - [x] Inspect and document the Sigma data contract from the attached specification
-- [ ] Replace static preview metrics with persisted source-backed records where matching data exists
+- [x] Replace static preview metrics with persisted source-backed records where matching data exists
 - [x] Verify Data Management desktop/mobile and save a new checkpoint
 - [x] Add live SFTP handshake using a server-side secret environment reference
 - [x] Add live MySQL connection handshake using a server-side secret environment reference

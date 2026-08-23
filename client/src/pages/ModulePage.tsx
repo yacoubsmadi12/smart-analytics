@@ -576,7 +576,17 @@ export default function ModulePage({ slug }: { slug: string }) {
   const { data: liveSources } = trpc.data.sources.useQuery(undefined, {
     enabled: slug === "data-management",
   });
+  const { data: dashboardSummary } = trpc.dashboard.summary.useQuery(undefined, {
+    enabled: Boolean(permissions),
+  });
   const item = modules[slug] || modules.network;
+  const liveMetric = dashboardSummary ? ({
+    "executive-overview": `${dashboardSummary.networkHealth.toFixed(1)}%`,
+    network: `${dashboardSummary.networkHealth.toFixed(1)}%`,
+    customers: `${(dashboardSummary.customers / 1_000_000).toFixed(2)}M`,
+    complaints: dashboardSummary.openComplaints.toLocaleString(),
+    "business-revenue": `$${(dashboardSummary.revenueAtRisk / 1_000_000).toFixed(2)}M`,
+  } as Record<string, string>)[slug] : undefined;
   const allowed = Boolean(permissions?.grants?.includes(item.grant));
   if (isLoading)
     return <div className="auth-loading">Loading protected module…</div>;
@@ -610,7 +620,7 @@ export default function ModulePage({ slug }: { slug: string }) {
       </section>
       <section className="standalone-metric">
         <strong>
-          {slug === "data-management" ? liveSources?.length || 0 : item.metric}
+          {slug === "data-management" ? liveSources?.length || 0 : liveMetric || item.metric}
         </strong>
         <span>{item.metricLabel}</span>
         <ArrowUpRight size={18} />

@@ -12,6 +12,7 @@ import {
   createDataSource,
   createImportRun,
   ensureLocalAdmin,
+  getPersistedDashboardSummary,
   getUserByUsername,
   listAiConversations,
   listDataSources,
@@ -212,15 +213,17 @@ export const appRouter = router({
     }),
   }),
   dashboard: router({
-    summary: protectedProcedure.query(() => ({
-      networkHealth: 94.8,
-      sites: 1284,
-      customers: 2840000,
-      openComplaints: 1842,
-      cxRisk: 18.4,
-      revenueAtRisk: 1280000,
-      updatedMinutesAgo: 2,
-    })),
+    summary: protectedProcedure.query(async () =>
+      (await getPersistedDashboardSummary()) ?? {
+        networkHealth: 94.8,
+        sites: 1284,
+        customers: 2840000,
+        openComplaints: 1842,
+        cxRisk: 18.4,
+        revenueAtRisk: 1280000,
+        updatedMinutesAgo: 2,
+      }
+    ),
     priorities: protectedProcedure
       .input(
         z.object({ limit: z.number().min(1).max(10).default(5) }).optional()

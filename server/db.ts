@@ -1,9 +1,13 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   aiConversations,
+  complaints,
+  customers,
   dataSources,
+  networkKpis,
+  revenues,
   auditLogs,
   importRuns,
   InsertUser,
@@ -24,6 +28,22 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function getPersistedDashboardSummary() {
+  const db = await getDb();
+  if (!db) return null;
+  const [network, sites, customerCount, openComplaintCount, risk, revenueRisk] = await Promise.all([
+    db.select({ value: sql<string>`avg(${networkKpis.availability})` }).from(networkKpis),
+    db.select({ value: sql<number>`count(distinct ${networkKpis.siteId})` }).from(networkKpis),
+    db.select({ value: sql<number>`count(*)` }).from(customers),
+    db.select({ value: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`),
+    db.select({ value: sql<string>`avg(${customers.churnRisk})` }).from(customers),
+    db.select({ value: sql<string>`sum(${revenues.atRisk})` }).from(revenues),
+  ]);
+  const numberValue = (value: unknown) => Number(value || 0);
+  const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0 };
+  return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : null;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
