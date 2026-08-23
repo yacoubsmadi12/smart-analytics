@@ -8,6 +8,7 @@ vi.mock("./db", () => ({
     conversationStore.set(input.userId, list);
   }),
   listAiConversations: vi.fn(async (userId: number, domain?: string) => (conversationStore.get(userId) ?? []).filter(item => !domain || item.domain === domain)),
+  listDataSources: vi.fn(async () => [{ id: 1, name: "Network OSS", type: "api", status: "healthy", lastSyncAt: new Date(), createdAt: new Date() }, { id: 2, name: "CX", type: "sftp", status: "healthy", lastSyncAt: new Date(), createdAt: new Date() }, { id: 3, name: "CRM", type: "database", status: "warning", lastSyncAt: new Date(), createdAt: new Date() }]),
 }));
 vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn(async () => ({ choices: [{ message: { content: "Mocked decision answer" } }] })) }));
 

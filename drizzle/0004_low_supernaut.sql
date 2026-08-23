@@ -1,0 +1,1 @@
+ALTER TABLE `importRuns` ADD `mappingJson` text;

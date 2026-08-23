@@ -1,8 +1,15 @@
 import { and, desc, eq } from "drizzle-orm";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
-import { aiConversations, InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  aiConversations,
+  dataSources,
+  auditLogs,
+  importRuns,
+  InsertUser,
+  users,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -57,8 +64,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -81,25 +88,42 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 const LOCAL_ADMIN_USERNAME = "admin";
 const LOCAL_ADMIN_PASSWORD = "admin";
 const LOCAL_ADMIN_SALT = "smart-analytics-local-v1";
-const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) => scryptSync(password, salt, 64).toString("hex");
+const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) =>
+  scryptSync(password, salt, 64).toString("hex");
 
 export async function ensureLocalAdmin() {
   const db = await getDb();
   if (!db) return undefined;
   const existing = await getUserByUsername(LOCAL_ADMIN_USERNAME);
   if (existing) return existing;
-  await db.insert(users).values({ openId: "local_admin", username: LOCAL_ADMIN_USERNAME, passwordHash: hashLocalPassword(LOCAL_ADMIN_PASSWORD), name: "System Administrator", loginMethod: "local", role: "admin" });
+  await db
+    .insert(users)
+    .values({
+      openId: "local_admin",
+      username: LOCAL_ADMIN_USERNAME,
+      passwordHash: hashLocalPassword(LOCAL_ADMIN_PASSWORD),
+      name: "System Administrator",
+      loginMethod: "local",
+      role: "admin",
+    });
   return getUserByUsername(LOCAL_ADMIN_USERNAME);
 }
 
 export async function getUserByUsername(username: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
   return result[0];
 }
 
-export function verifyLocalPassword(password: string, passwordHash: string | null) {
+export function verifyLocalPassword(
+  password: string,
+  passwordHash: string | null
+) {
   if (!passwordHash) return false;
   const actual = Buffer.from(hashLocalPassword(password), "hex");
   const expected = Buffer.from(passwordHash, "hex");
@@ -113,12 +137,21 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function createAiConversation(input: { userId: number; domain: string; question: string; answer: string }) {
+export async function createAiConversation(input: {
+  userId: number;
+  domain: string;
+  question: string;
+  answer: string;
+}) {
   const db = await getDb();
   if (!db) return undefined;
   return db.insert(aiConversations).values(input);
@@ -127,8 +160,128 @@ export async function createAiConversation(input: { userId: number; domain: stri
 export async function listAiConversations(userId: number, domain?: string) {
   const db = await getDb();
   if (!db) return [];
-  const condition = domain ? and(eq(aiConversations.userId, userId), eq(aiConversations.domain, domain)) : eq(aiConversations.userId, userId);
-  return db.select().from(aiConversations).where(condition).orderBy(desc(aiConversations.createdAt)).limit(20);
+  const condition = domain
+    ? and(
+        eq(aiConversations.userId, userId),
+        eq(aiConversations.domain, domain)
+      )
+    : eq(aiConversations.userId, userId);
+  return db
+    .select()
+    .from(aiConversations)
+    .where(condition)
+    .orderBy(desc(aiConversations.createdAt))
+    .limit(20);
+}
+
+export async function listDataSources() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dataSources).orderBy(desc(dataSources.createdAt));
+}
+
+export async function createDataSource(input: {
+  name: string;
+  type: string;
+  connectionRef?: string;
+  userId: number;
+}) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .insert(dataSources)
+    .values({
+      name: input.name,
+      type: input.type,
+      connectionRef: input.connectionRef,
+      status: "pending",
+    });
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.userId,
+      action: "data_source.created",
+      resource: input.name,
+      metadata: JSON.stringify({
+        type: input.type,
+        connectionRef: input.connectionRef,
+      }),
+    });
+  return result;
+}
+
+export async function updateDataSourceSync(sourceId: number, status: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(dataSources)
+    .set({ status, lastSyncAt: new Date() })
+    .where(eq(dataSources.id, sourceId));
+}
+
+export async function createImportRun(input: {
+  sourceId?: number;
+  userId: number;
+  method: string;
+  fileName?: string;
+  status?: "received" | "validated" | "rejected" | "processed";
+  rowCount: number;
+  validRows: number;
+  invalidRows: number;
+  schemaJson?: string;
+  errorsJson?: string;
+  mappingJson?: string;
+  storageKey?: string;
+}) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.insert(importRuns).values(input);
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.userId,
+      action: "data_import.received",
+      resource: input.fileName || input.method,
+      metadata: JSON.stringify({
+        method: input.method,
+        rowCount: input.rowCount,
+        validRows: input.validRows,
+        invalidRows: input.invalidRows,
+      }),
+    });
+  return result;
+}
+
+export async function saveImportMapping(input: {
+  importRunId: number;
+  userId: number;
+  mappingJson: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(importRuns)
+    .set({ mappingJson: input.mappingJson })
+    .where(eq(importRuns.id, input.importRunId));
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.userId,
+      action: "data_import.mapping_saved",
+      resource: String(input.importRunId),
+      metadata: input.mappingJson,
+    });
+}
+
+export async function listImportRuns(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(importRuns)
+    .where(eq(importRuns.userId, userId))
+    .orderBy(desc(importRuns.createdAt))
+    .limit(50);
 }
 
 // Feature queries are kept server-side so credentials and authorization never reach the client.

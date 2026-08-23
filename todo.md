@@ -94,3 +94,37 @@
 - [x] Remove the bilingual Translation type and helper entirely from Home.tsx
 - [x] Replace remaining t(...) wrappers with direct English copy in Home.tsx
 - [x] Rerun typecheck/tests/build after removing the helper
+
+# Real Data Sources Update
+
+- [ ] Inspect and document Sigma data schema and required source datasets
+- [x] Add source configuration model for manual upload, API, database, and SFTP methods
+- [x] Add secure server-side ingestion endpoints with validation and audit records
+- [x] Add file upload and schema preview for CSV/XLSX/JSON in Data Management
+- [x] Add API endpoint configuration with secret-backed credentials and test connection action
+- [x] Add SFTP configuration with secret-backed credentials and path validation
+- [x] Add import runs, row validation errors, mapping, and last-sync status
+- [ ] Replace hardcoded analytics preview data with persisted imported source data where available
+- [x] Add tests for ingestion validation, source authorization, mapping, and audit logging
+- [ ] Verify Data Management and source setup flows on desktop/mobile and save checkpoint
+- [x] Render the real source intake and import history inside the standalone data-management route
+- [x] Ensure standalone Data Management uses live source/import queries instead of static preview rows
+- [x] Re-test the standalone route after wiring the live data surface
+
+# Data Source Gap Closure
+
+- [x] Add server-side connection-test procedure for API, SFTP, and database references without exposing credentials
+- [x] Render uploaded schema fields and row-level validation errors in Data Management
+- [x] Add source field-mapping UI and persist mapping definitions
+- [x] Update source status and lastSyncAt after successful import/connection test
+- [x] Add Vitest coverage for connection-test authorization, mapping, and audit persistence
+- [x] Inspect and document the Sigma data contract from the attached specification
+- [ ] Replace static preview metrics with persisted source-backed records where matching data exists
+- [x] Verify Data Management desktop/mobile and save a new checkpoint
+- [x] Add live SFTP handshake using a server-side secret environment reference
+- [x] Add live MySQL connection handshake using a server-side secret environment reference
+- [x] Return CSV row numbers and field-specific validation errors
+- [x] Persist and test source/mapping audit records with isolated database mocks
+- [x] Avoid source status updates when sourceId is absent or invalid
+- [x] Add field-level validation for required identifiers, status values, and numeric KPI fields
+- [x] Add Vitest coverage verifying audit-log payloads for source creation and mapping save
