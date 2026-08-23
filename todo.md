@@ -65,3 +65,15 @@
 - [x] Add named dedicated module page exports for each sidebar module, including Executive Overview
 - [x] Test ensureLocalAdmin bootstrap behavior without inserting fixture data
 - [x] Test local session authentication and admin authorization after local login
+
+# Theme Motion Update
+
+- [x] Unify login and platform colors into a telecom-inspired visual system
+- [x] Add an animated telecom tower to the login hero and platform background
+- [x] Add a performant animated network/grid background shared by login and platform
+- [x] Add prefers-reduced-motion fallbacks for all new animations
+- [x] Verify desktop/mobile visuals and run typecheck/tests/build
+- [x] Save a new checkpoint for the theme update
+- [x] Verify updated platform/dashboard telecom theme visually on desktop
+- [x] Verify updated platform/dashboard telecom theme visually on mobile
+- [ ] Save fresh checkpoint after platform visual verification
