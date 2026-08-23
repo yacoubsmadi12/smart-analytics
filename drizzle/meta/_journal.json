@@ -50,6 +50,13 @@
       "when": 1787511088109,
       "tag": "0006_minor_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1787516925854,
+      "tag": "0007_natural_paper_doll",
+      "breakpoints": true
     }
   ]
 }

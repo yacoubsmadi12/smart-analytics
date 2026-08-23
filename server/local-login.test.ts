@@ -32,4 +32,11 @@ describe("auth.localLogin", () => {
     await expect(appRouter.createCaller(ctx).auth.localLogin({ username: "admin", password: "wrong" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     expect(sdkMocks.signSession).not.toHaveBeenCalled();
   });
+
+  it("rejects a disabled local account", async () => {
+    dbMocks.getUserByUsername.mockResolvedValue({ id: 1, openId: "local_admin", username: "admin", passwordHash: "hash", name: "System Administrator", role: "admin", isActive: false });
+    const { ctx } = context();
+    await expect(appRouter.createCaller(ctx).auth.localLogin({ username: "admin", password: "admin" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(sdkMocks.signSession).not.toHaveBeenCalled();
+  });
 });

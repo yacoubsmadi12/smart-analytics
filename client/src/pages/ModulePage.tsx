@@ -9,6 +9,10 @@ import {
   Database,
   Gauge,
   Loader2,
+  KeyRound,
+  Search,
+  UserCheck,
+  UserX,
   Map,
   Network,
   ShieldCheck,
@@ -17,11 +21,12 @@ import {
   Users,
   Wifi,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { connectionFailureGuidance } from "@/lib/connection-feedback";
 import { formatLatency, formatSuccessfulCheck, sourceStatusLabel } from "@/lib/source-observability";
+import { filterUsers } from "@/lib/user-directory";
 
 const modules: Record<
   string,
@@ -604,24 +609,40 @@ function UserManagementPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"user" | "admin">("user");
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "user" | "admin">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
+  const [resetTarget, setResetTarget] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState("");
   const [feedback, setFeedback] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+
+  const refreshUsers = () => void utils.admin.users.invalidate();
   const createUser = trpc.admin.createUser.useMutation({
     onSuccess: () => {
       setFeedback({ message: "User created successfully and is ready for local sign-in.", tone: "success" });
       setUsername(""); setName(""); setEmail(""); setPassword(""); setRole("user");
-      void utils.admin.users.invalidate();
+      refreshUsers();
     },
     onError: error => setFeedback({ message: error.message || "User could not be created. Check the form and try again.", tone: "error" }),
   });
   const updateRole = trpc.admin.updateUserRole.useMutation({
-    onSuccess: () => { setFeedback({ message: "User role updated successfully.", tone: "success" }); void utils.admin.users.invalidate(); },
+    onSuccess: () => { setFeedback({ message: "User role updated successfully.", tone: "success" }); refreshUsers(); },
     onError: error => setFeedback({ message: error.message || "User role could not be updated.", tone: "error" }),
   });
+  const resetPassword = trpc.admin.resetPassword.useMutation({
+    onSuccess: () => { setFeedback({ message: "Password reset successfully. Share the new temporary password securely.", tone: "success" }); setResetTarget(null); setNewPassword(""); },
+    onError: error => setFeedback({ message: error.message || "Password could not be reset.", tone: "error" }),
+  });
+  const setActive = trpc.admin.setActive.useMutation({
+    onSuccess: result => { setFeedback({ message: result.isActive ? "Account enabled successfully." : "Account disabled successfully.", tone: "success" }); refreshUsers(); },
+    onError: error => setFeedback({ message: error.message || "Account status could not be updated.", tone: "error" }),
+  });
+  const filteredUsers = useMemo(() => filterUsers(usersQuery.data ?? [], search, roleFilter, statusFilter), [usersQuery.data, search, roleFilter, statusFilter]);
 
   return (
     <div className="user-management-panel">
       <div className="user-management-head">
-        <div><span className="section-kicker">IDENTITY CONTROL</span><h2>Create and manage users</h2><p>Use local credentials and assign the access role before the user signs in.</p></div>
+        <div><span className="section-kicker">IDENTITY CONTROL</span><h2>Create and manage users</h2><p>Use local credentials, manage account access, and assign the access role before the user signs in.</p></div>
         <ShieldCheck size={24} />
       </div>
       <form className="user-create-form" onSubmit={event => { event.preventDefault(); setFeedback(null); createUser.mutate({ username, name, email: email || undefined, password, role }); }}>
@@ -632,10 +653,15 @@ function UserManagementPanel() {
         <label><span>Role</span><select value={role} onChange={event => setRole(event.target.value as "user" | "admin")}><option value="user">User — operational access</option><option value="admin">Admin — full management access</option></select></label>
         <button className="primary-action user-create-submit" type="submit" disabled={createUser.isPending}>{createUser.isPending ? <><Loader2 size={14} className="spin" /> Creating user…</> : "Create user"}</button>
       </form>
-      <p className="user-form-hint">Passwords are hashed server-side. The password value never appears in the user list or audit payload.</p>
+      <p className="user-form-hint">Passwords are hashed server-side. Password values never appear in the user list or audit payload.</p>
       {feedback && <div className={`module-feedback ${feedback.tone}`}>{feedback.message}</div>}
-      <div className="user-list-head"><div><span className="section-kicker">ACCESS DIRECTORY</span><h2>Saved users</h2></div><span>{usersQuery.data?.length || 0} accounts</span></div>
-      {usersQuery.isLoading ? <div className="module-state"><Loader2 size={16} className="spin" /> Loading users…</div> : usersQuery.error ? <div className="module-feedback error">Unable to load users. Refresh the page or check the database connection. {usersQuery.error.message}</div> : usersQuery.data?.length ? <div className="user-directory">{usersQuery.data.map(user => <div className="user-directory-row" key={user.id}><div className="user-directory-identity"><div className="user-avatar">{(user.name || user.username || "U").charAt(0).toUpperCase()}</div><div><b>{user.name || "Unnamed user"}</b><small>@{user.username || "—"} {user.email ? `· ${user.email}` : ""}</small></div></div><div className="user-directory-role"><select aria-label={`Role for ${user.username || user.id}`} value={user.role} disabled={updateRole.isPending} onChange={event => updateRole.mutate({ userId: user.id, role: event.target.value as "user" | "admin" })}><option value="user">User</option><option value="admin">Admin</option></select><small>Last sign-in: {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleString() : "Never"}</small></div></div>)}</div> : <div className="module-state">No users found. Create the first local account above.</div>}
+      <div className="user-list-head"><div><span className="section-kicker">ACCESS DIRECTORY</span><h2>Saved users</h2></div><span>{filteredUsers.length} of {usersQuery.data?.length || 0} accounts</span></div>
+      <div className="user-directory-controls">
+        <label className="user-search"><Search size={14} /><span className="sr-only">Search users</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search name, username, or email" /></label>
+        <label><span className="sr-only">Filter by role</span><select value={roleFilter} onChange={event => setRoleFilter(event.target.value as "all" | "user" | "admin")}><option value="all">All roles</option><option value="admin">Admins</option><option value="user">Users</option></select></label>
+        <label><span className="sr-only">Filter by status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value as "all" | "active" | "disabled")}><option value="all">All statuses</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label>
+      </div>
+      {usersQuery.isLoading ? <div className="module-state"><Loader2 size={16} className="spin" /> Loading users…</div> : usersQuery.error ? <div className="module-feedback error">Unable to load users. Refresh the page or check the database connection. {usersQuery.error.message}</div> : usersQuery.data?.length ? filteredUsers.length ? <div className="user-directory">{filteredUsers.map(user => <div className={`user-directory-row ${user.isActive ? "" : "is-disabled"}`} key={user.id}><div className="user-directory-main"><div className="user-directory-identity"><div className="user-avatar">{(user.name || user.username || "U").charAt(0).toUpperCase()}</div><div><b>{user.name || "Unnamed user"}</b><small>@{user.username || "—"} {user.email ? `· ${user.email}` : ""}</small></div></div><span className={`user-status-badge ${user.isActive ? "active" : "disabled"}`}><span />{user.isActive ? "Active" : "Disabled"}</span></div><div className="user-directory-management"><div className="user-directory-role"><select aria-label={`Role for ${user.username || user.id}`} value={user.role} disabled={updateRole.isPending || setActive.isPending} onChange={event => updateRole.mutate({ userId: user.id, role: event.target.value as "user" | "admin" })}><option value="user">User</option><option value="admin">Admin</option></select><small>Last sign-in: {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleString() : "Never"}</small></div><div className="user-row-actions"><button type="button" className="user-row-action" onClick={() => { setResetTarget(resetTarget === user.id ? null : user.id); setNewPassword(""); setFeedback(null); }} disabled={resetPassword.isPending}><KeyRound size={13} /> Reset password</button><button type="button" className={`user-row-action ${user.isActive ? "danger" : "enable"}`} onClick={() => setActive.mutate({ userId: user.id, isActive: !user.isActive })} disabled={setActive.isPending}><>{user.isActive ? <UserX size={13} /> : <UserCheck size={13} />}</> {user.isActive ? "Disable" : "Enable"}</button></div></div>{resetTarget === user.id && <form className="reset-password-inline" onSubmit={event => { event.preventDefault(); resetPassword.mutate({ userId: user.id, password: newPassword }); }}><input type="password" aria-label={`New password for ${user.username || user.id}`} value={newPassword} onChange={event => setNewPassword(event.target.value)} placeholder="New password · minimum 8 characters" minLength={8} required /><button type="submit" className="user-row-action enable" disabled={resetPassword.isPending}>{resetPassword.isPending ? <><Loader2 size={13} className="spin" /> Saving…</> : "Save password"}</button><button type="button" className="user-row-action" onClick={() => { setResetTarget(null); setNewPassword(""); }}>Cancel</button></form>}</div>)}</div> : <div className="module-state">No users match the current search and filters.</div> : <div className="module-state">No users found. Create the first local account above.</div>}
     </div>
   );
 }

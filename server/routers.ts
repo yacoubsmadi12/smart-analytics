@@ -19,6 +19,8 @@ import {
   listLocalUsers,
   createLocalUser,
   updateLocalUserRole,
+  resetLocalUserPassword,
+  setLocalUserActive,
   listImportRuns,
   verifyLocalPassword,
 } from "./db";
@@ -179,6 +181,11 @@ export const appRouter = router({
         const account = await getUserByUsername(
           input.username.trim().toLowerCase()
         );
+        if (account?.isActive === false)
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This account is disabled. Contact an administrator.",
+          });
         if (
           !account ||
           !verifyLocalPassword(input.password, account.passwordHash)
@@ -568,6 +575,28 @@ export const appRouter = router({
           return updated;
         } catch (error) {
           throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "User role could not be updated" });
+        }
+      }),
+    resetPassword: protectedProcedure
+      .input(z.object({ userId: z.number().int().positive(), password: z.string().min(8).max(128) }))
+      .mutation(async ({ ctx, input }) => {
+        adminOnly(ctx.user);
+        try {
+          return await resetLocalUserPassword({ ...input, actorUserId: ctx.user.id });
+        } catch (error) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Password could not be reset" });
+        }
+      }),
+    setActive: protectedProcedure
+      .input(z.object({ userId: z.number().int().positive(), isActive: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        adminOnly(ctx.user);
+        try {
+          const updated = await setLocalUserActive({ ...input, actorUserId: ctx.user.id });
+          if (!updated) throw new Error("User status could not be loaded after update");
+          return updated;
+        } catch (error) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "User status could not be updated" });
         }
       }),
     accessCheck: protectedProcedure.query(({ ctx }) => {

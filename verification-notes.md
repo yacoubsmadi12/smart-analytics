@@ -18,3 +18,7 @@ The standalone User Management page was reviewed at 375x812 and 1280x720. The cr
 ## User Management repair verification
 
 The standalone User Management page was reviewed at 375x812 and 1280x720 after the CRUD repair. The live active-profile count now matches the database-backed directory count. The form and role selectors remain readable and usable on mobile, while the desktop layout presents the create form and saved-user directory side by side in a clear admin workflow.
+
+## User directory controls verification
+
+The User Management directory was reviewed at desktop width after the account-controls update. The search bar, role/status filters, live account count, status badges, role selectors, Reset password actions, and Disable actions are visible and aligned within each user row. The initial mobile capture encountered the expected protected-module loading state during startup; a subsequent desktop capture rendered the complete directory successfully. Automated interaction coverage validates the protected mutations and search/filter helper.

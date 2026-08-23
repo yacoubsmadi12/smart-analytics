@@ -2101,8 +2101,34 @@ nav em {
 .user-form-hint { margin: -9px 2px 0; color: #64838d; font-size: 10px; line-height: 1.5; }
 .user-list-head { align-items: center; padding-top: 10px; border-top: 1px solid #1b3b47; }
 .user-list-head > span { color: #71929c; font: 10px "DM Mono"; }
+.user-directory-controls { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px; gap: 8px; }
+.user-directory-controls label { min-width: 0; }
+.user-directory-controls input, .user-directory-controls select { width: 100%; min-height: 34px; border: 1px solid #294c59; border-radius: 5px; padding: 8px 10px; background: #0a1d27; color: #d8e9eb; font-size: 10px; outline: none; }
+.user-directory-controls select { font-family: "DM Mono"; font-size: 9px; }
+.user-directory-controls input:focus, .user-directory-controls select:focus { border-color: #51cbd2; box-shadow: 0 0 0 2px rgba(81, 203, 210, .12); }
+.user-search { position: relative; display: flex; align-items: center; }
+.user-search > svg { position: absolute; left: 10px; color: #5b8b96; pointer-events: none; }
+.user-search input { padding-left: 31px; }
 .user-directory { display: grid; gap: 8px; }
-.user-directory-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 11px 12px; border: 1px solid #1b3b47; border-radius: 7px; background: rgba(12, 35, 46, .68); }
+.user-directory-row { display: grid; gap: 10px; padding: 11px 12px; border: 1px solid #1b3b47; border-radius: 7px; background: rgba(12, 35, 46, .68); }
+.user-directory-row.is-disabled { border-color: #59434b; background: rgba(37, 27, 35, .55); }
+.user-directory-main, .user-directory-management { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.user-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 999px; font: 9px "DM Mono"; white-space: nowrap; }
+.user-status-badge > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.user-status-badge.active { color: #56d5a5; background: rgba(33, 117, 91, .16); }
+.user-status-badge.disabled { color: #e5a0a7; background: rgba(122, 55, 69, .18); }
+.user-directory-management { align-items: flex-end; }
+.user-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.user-row-action { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 27px; border: 1px solid #2b5360; border-radius: 5px; padding: 5px 8px; background: #0e2935; color: #8ebbc2; font: 9px "DM Mono"; cursor: pointer; transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease; }
+.user-row-action:hover { border-color: #4dbcc6; color: #d6ffff; background: #123846; }
+.user-row-action:active { transform: scale(.97); }
+.user-row-action.danger { border-color: #6b3d4a; color: #e6a2a9; background: rgba(91, 38, 51, .35); }
+.user-row-action.danger:hover { border-color: #b86371; background: rgba(117, 44, 58, .45); }
+.user-row-action.enable { border-color: #276d5d; color: #79e0bd; background: rgba(28, 100, 79, .25); }
+.user-row-action:disabled { cursor: wait; opacity: .55; }
+.reset-password-inline { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; padding: 9px 0 0 40px; border-top: 1px solid #1d3c47; }
+.reset-password-inline input { min-width: 0; border: 1px solid #294c59; border-radius: 5px; padding: 7px 9px; background: #0a1d27; color: #d8e9eb; font-size: 10px; outline: none; }
+.reset-password-inline input:focus { border-color: #51cbd2; box-shadow: 0 0 0 2px rgba(81, 203, 210, .12); }
 .user-directory-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .user-avatar { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #2a7480; border-radius: 50%; background: #123b49; color: #76e2dd; font: 12px "DM Mono"; flex: 0 0 auto; }
 .user-directory-identity > div:last-child { display: grid; gap: 4px; min-width: 0; }
@@ -2113,9 +2139,14 @@ nav em {
 @media (max-width: 760px) {
   .user-create-form { grid-template-columns: 1fr; }
   .user-create-submit { width: 100%; }
-  .user-directory-row { align-items: flex-start; flex-direction: column; gap: 11px; }
+  .user-directory-controls { grid-template-columns: 1fr; }
+  .user-directory-main, .user-directory-management { align-items: flex-start; flex-direction: column; gap: 11px; }
+  .user-directory-row { align-items: flex-start; }
   .user-directory-role { width: 100%; justify-items: start; }
   .user-directory-role select { width: 100%; }
+  .user-row-actions { width: 100%; justify-content: stretch; }
+  .user-row-action { flex: 1; }
+  .reset-password-inline { grid-template-columns: 1fr; padding-left: 0; }
 }
 .standalone-panel-head {
   display: flex;

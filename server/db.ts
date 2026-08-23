@@ -137,12 +137,13 @@ export type PublicLocalUser = {
   name: string | null;
   email: string | null;
   role: LocalRole;
+  isActive: boolean;
   createdAt: Date;
   lastSignedIn: Date;
 };
 
 function toPublicLocalUser(user: typeof users.$inferSelect): PublicLocalUser {
-  return { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt, lastSignedIn: user.lastSignedIn };
+  return { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role, isActive: user.isActive, createdAt: user.createdAt, lastSignedIn: user.lastSignedIn };
 }
 
 export async function listLocalUsers() {
@@ -175,6 +176,32 @@ export async function updateLocalUserRole(input: { userId: number; role: LocalRo
   }
   await db.update(users).set({ role: input.role }).where(eq(users.id, input.userId));
   await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.role_updated", resource: target.username || String(target.id), metadata: JSON.stringify({ from: target.role, to: input.role }) });
+  const updated = await getUserById(input.userId);
+  return updated ? toPublicLocalUser(updated) : undefined;
+}
+
+export async function resetLocalUserPassword(input: { userId: number; password: string; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const target = await getUserById(input.userId);
+  if (!target) throw new Error("User not found");
+  await db.update(users).set({ passwordHash: hashLocalPassword(input.password), loginMethod: "local" }).where(eq(users.id, input.userId));
+  await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.password_reset", resource: target.username || String(target.id), metadata: JSON.stringify({ targetUserId: target.id }) });
+  return { success: true } as const;
+}
+
+export async function setLocalUserActive(input: { userId: number; isActive: boolean; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const target = await getUserById(input.userId);
+  if (!target) throw new Error("User not found");
+  if (!input.isActive && target.id === input.actorUserId) throw new Error("You cannot disable your own account");
+  if (!input.isActive && target.role === "admin" && target.isActive) {
+    const activeAdmins = await db.select({ id: users.id }).from(users).where(and(eq(users.role, "admin"), eq(users.isActive, true)));
+    if (activeAdmins.length <= 1) throw new Error("The last active administrator cannot be disabled");
+  }
+  await db.update(users).set({ isActive: input.isActive }).where(eq(users.id, input.userId));
+  await db.insert(auditLogs).values({ userId: input.actorUserId, action: input.isActive ? "user.enabled" : "user.disabled", resource: target.username || String(target.id), metadata: JSON.stringify({ targetUserId: target.id, isActive: input.isActive }) });
   const updated = await getUserById(input.userId);
   return updated ? toPublicLocalUser(updated) : undefined;
 }

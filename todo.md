@@ -151,3 +151,13 @@
 - [x] Build a working User Management create-user form with role selection and clear feedback
 - [x] Add tests for admin authorization, validation, user creation, and assigned roles
 - [x] Verify User Management on desktop/mobile and save a checkpoint
+
+# User Directory Controls Update
+
+- [x] Add persisted account-active state with safe migration
+- [x] Add protected admin procedures for password reset and account disable/enable
+- [x] Record password-reset and account-status changes in audit logs
+- [x] Add search and role/status filters to the user directory
+- [x] Add reset-password and disable/enable controls with clear feedback
+- [x] Add tests for authorization, validation, self-protection, and filtering
+- [x] Verify the updated user directory on desktop/mobile and save a checkpoint
