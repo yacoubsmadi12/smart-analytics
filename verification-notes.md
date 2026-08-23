@@ -1,5 +1,4 @@
-## Final verification notes
 
-The authenticated browser flow accepted the local admin/admin credentials and rendered the English-only Telecom NOC Executive Overview with the dark carrier theme, animated tower, responsive navigation, KPI cards, map, priorities, and role-scoped controls. Data Management was visually reviewed at 375x812 and 1280x720; the source setup form, method selector, non-secret reference field, manual upload control, save action, empty source state, and import history state were visible without horizontal overflow.
+## Database connection UX update
 
-The source setup interaction was inspected in the authenticated preview. The UI intentionally keeps credentials out of the browser and exposes only the non-sensitive connection reference, while server procedures handle API, SFTP, database handshakes, validation, mapping, and audit persistence. Automated coverage now includes field-level CSV validation and direct audit payload assertions.
+The Data Management route was visually reviewed at 375x812 and 1280x720 after the UX update. Both layouts remain readable without horizontal overflow. The Import history section shows an animated loading indicator and the source setup controls remain aligned. Connection actions now expose animated progress labels, while feedback messages use success/error icons, alert semantics, actionable guidance, and retry controls for source/import-history query failures.

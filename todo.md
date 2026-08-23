@@ -128,3 +128,10 @@
 - [x] Avoid source status updates when sourceId is absent or invalid
 - [x] Add field-level validation for required identifiers, status values, and numeric KPI fields
 - [x] Add Vitest coverage verifying audit-log payloads for source creation and mapping save
+
+# Database Connection UX Update
+
+- [x] Add animated loading states for source loading and database connection tests
+- [x] Add clear database connection error messages with actionable guidance
+- [x] Add Vitest coverage for connection loading/error presentation helpers
+- [x] Verify the updated Data Management flow on desktop and mobile and save a checkpoint

@@ -1252,12 +1252,80 @@ nav em {
   color: #f28b83;
 }
 .module-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin-top: 12px;
-  padding: 9px 11px;
+  padding: 10px 11px;
+  border: 1px solid rgba(73, 190, 157, 0.22);
   border-radius: 6px;
   background: #123a36;
   color: #76dbb1;
   font-size: 9px;
+  line-height: 1.55;
+}
+.module-feedback > span {
+  min-width: 0;
+}
+.module-feedback.success {
+  background: rgba(18, 58, 54, 0.82);
+}
+.module-feedback.error {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  background: rgba(82, 30, 36, 0.58);
+  border-color: rgba(242, 139, 131, 0.28);
+}
+.connection-feedback div {
+  display: grid;
+  gap: 3px;
+}
+.connection-feedback b {
+  color: #ffd2cc;
+  font-size: 10px;
+}
+.connection-feedback span {
+  color: #f2aaa2;
+}
+.connection-feedback button {
+  border: 1px solid rgba(242, 139, 131, 0.45);
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: transparent;
+  color: #ffd2cc;
+  font: 9px "DM Mono";
+  cursor: pointer;
+}
+.connection-feedback button:hover {
+  background: rgba(242, 139, 131, 0.12);
+}
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #82dce2 !important;
+}
+.spin {
+  animation: connection-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+.feedback-info-icon {
+  color: #78d9df;
+  animation: connection-pulse 1.2s ease-in-out infinite;
+}
+@keyframes connection-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes connection-pulse {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .feedback-info-icon {
+    animation: none;
+  }
 }
 .module-head {
   display: flex;

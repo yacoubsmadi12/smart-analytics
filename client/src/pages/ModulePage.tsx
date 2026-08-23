@@ -1,10 +1,13 @@
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
+  CheckCircle2,
   ArrowUpRight,
   BarChart3,
   Database,
   Gauge,
+  Loader2,
   Map,
   Network,
   ShieldCheck,
@@ -16,6 +19,7 @@ import {
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { connectionFailureGuidance } from "@/lib/connection-feedback";
 
 const modules: Record<
   string,
@@ -328,28 +332,25 @@ function DataSourceConsole() {
   const [sourceName, setSourceName] = useState("");
   const [connectionRef, setConnectionRef] = useState("");
   const [notice, setNotice] = useState("");
+  const [noticeTone, setNoticeTone] = useState<"info" | "success" | "error">("info");
+  const showNotice = (message: string, tone: "info" | "success" | "error" = "info") => { setNotice(message); setNoticeTone(tone); };
   const [schemaPreview, setSchemaPreview] = useState<string[]>([]);
   const [rowErrors, setRowErrors] = useState<string[]>([]);
   const [lastRunId, setLastRunId] = useState(0);
   const [mappingText, setMappingText] = useState("{}");
-  const { data: sources, isLoading: sourcesLoading } =
-    trpc.data.sources.useQuery();
-  const { data: runs, isLoading: runsLoading } =
-    trpc.data.importRuns.useQuery();
+  const { data: sources, isLoading: sourcesLoading, error: sourcesError, refetch: refetchSources } = trpc.data.sources.useQuery();
+  const { data: runs, isLoading: runsLoading, error: runsError, refetch: refetchRuns } = trpc.data.importRuns.useQuery();
   const register = trpc.data.registerSource.useMutation({
-    onSuccess: () =>
-      setNotice(
-        "Source configuration saved. Add credentials through server secrets before connecting."
-      ),
-    onError: e => setNotice(e.message),
+    onSuccess: () => showNotice("Source configuration saved. Add credentials through server secrets before connecting.", "success"),
+    onError: e => showNotice("Source configuration could not be saved. Check the source name and connection reference, then retry.", "error"),
   });
   const testConnection = trpc.data.testConnection.useMutation({
-    onSuccess: result => setNotice(result.message),
-    onError: e => setNotice(e.message),
+    onSuccess: result => showNotice(result.ok ? result.message : connectionFailureGuidance(method, result.message), result.ok ? "success" : "error"),
+    onError: e => showNotice(connectionFailureGuidance(method, e.message), "error"),
   });
   const saveMapping = trpc.data.saveMapping.useMutation({
-    onSuccess: () => setNotice("Field mapping saved to the import run."),
-    onError: e => setNotice(e.message),
+    onSuccess: () => showNotice("Field mapping saved to the import run.", "success"),
+    onError: e => showNotice("Field mapping could not be saved. Confirm the JSON and import run, then retry.", "error"),
   });
   const upload = trpc.data.manualImport.useMutation({
     onSuccess: result => {
@@ -365,16 +366,14 @@ function DataSourceConsole() {
           2
         )
       );
-      setNotice(
-        `Received ${result.fileName}: ${result.rowCount} rows, ${result.validRows} valid, ${result.invalidRows} invalid.`
-      );
+      showNotice(`Received ${result.fileName}: ${result.rowCount} rows, ${result.validRows} valid, ${result.invalidRows} invalid.`, result.invalidRows ? "error" : "success");
     },
-    onError: e => setNotice(e.message),
+    onError: e => showNotice("The file could not be processed. Confirm the format, encoding, and required fields, then retry.", "error"),
   });
   const handleFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !sourceName.trim()) {
-      setNotice("Enter a source name before selecting a file.");
+      showNotice("Enter a source name before selecting a file.", "error");
       return;
     }
     const reader = new FileReader();
@@ -394,11 +393,18 @@ function DataSourceConsole() {
     <div className="standalone-data-console">
       <div className="module-subhead">
         <b>Connected sources</b>
-        <span>
-          {sourcesLoading ? "Loading..." : `${sources?.length || 0} configured`}
+        <span className={sourcesLoading ? "loading-inline" : ""}>
+          {sourcesLoading ? <><Loader2 size={11} className="spin" /> Loading sources</> : `${sources?.length || 0} configured`}
         </span>
       </div>
-      {!sourcesLoading && !sources?.length && (
+      {sourcesError && (
+        <div className="module-feedback error connection-feedback" role="alert">
+          <AlertCircle size={15} />
+          <div><b>Sources could not be loaded</b><span>{connectionFailureGuidance("database", sourcesError.message)}</span></div>
+          <button type="button" onClick={() => refetchSources()}>Retry</button>
+        </div>
+      )}
+      {!sourcesLoading && !sourcesError && !sources?.length && (
         <div className="module-state">
           No source has been configured yet. Add your first API, SFTP, database,
           or file source below.
@@ -465,9 +471,10 @@ function DataSourceConsole() {
             <input
               type="file"
               accept=".csv,.json,.xlsx,.xls"
+              disabled={upload.isPending}
               onChange={handleFile}
             />
-            Choose CSV, JSON or spreadsheet
+            {upload.isPending ? <><Loader2 size={13} className="spin" /> Processing file...</> : "Choose CSV, JSON or spreadsheet"}
           </label>
         )}
         <button
@@ -481,7 +488,7 @@ function DataSourceConsole() {
             })
           }
         >
-          {register.isPending ? "Saving..." : "Save source"}
+          {register.isPending ? <><Loader2 size={13} className="spin" /> Saving source...</> : "Save source"}
         </button>
         {method !== "manual" && (
           <button
@@ -494,7 +501,7 @@ function DataSourceConsole() {
               })
             }
           >
-            {testConnection.isPending ? "Testing..." : "Test connection"}
+            {testConnection.isPending ? <><Loader2 size={13} className="spin" /> Testing connection...</> : "Test connection"}
           </button>
         )}
       </div>
@@ -502,7 +509,7 @@ function DataSourceConsole() {
         For API, SFTP, and database sources, store credentials as server secrets
         and keep only the non-sensitive reference here.
       </small>
-      {notice && <div className="module-feedback">{notice}</div>}
+      {notice && <div className={`module-feedback ${noticeTone === "error" ? "error" : ""} ${noticeTone === "success" ? "success" : ""}`} role={noticeTone === "error" ? "alert" : "status"}>{noticeTone === "error" ? <AlertCircle size={15} /> : noticeTone === "success" ? <CheckCircle2 size={15} /> : <Loader2 size={15} className="feedback-info-icon" />}<span>{notice}</span></div>}
       {schemaPreview.length > 0 && (
         <div className="schema-preview">
           <div className="module-subhead">
@@ -536,11 +543,11 @@ function DataSourceConsole() {
                       mapping: JSON.parse(mappingText),
                     });
                   } catch {
-                    setNotice("Mapping must be valid JSON.");
+                    showNotice("Mapping must be valid JSON. Check commas, quotes, and braces before saving.", "error");
                   }
                 }}
               >
-                Save mapping
+                {saveMapping.isPending ? <><Loader2 size={13} className="spin" /> Saving mapping...</> : "Save mapping"}
               </button>
             </div>
           )}
@@ -548,9 +555,10 @@ function DataSourceConsole() {
       )}
       <div className="module-subhead">
         <b>Import history</b>
-        <span>{runsLoading ? "Loading..." : `${runs?.length || 0} runs`}</span>
+        <span className={runsLoading ? "loading-inline" : ""}>{runsLoading ? <><Loader2 size={11} className="spin" /> Loading import history</> : `${runs?.length || 0} runs`}</span>
       </div>
-      {!runsLoading && !runs?.length && (
+      {runsError && <div className="module-feedback error connection-feedback" role="alert"><AlertCircle size={15} /><div><b>Import history could not be loaded</b><span>{connectionFailureGuidance("database", runsError.message)}</span></div><button type="button" onClick={() => refetchRuns()}>Retry</button></div>}
+      {!runsLoading && !runsError && !runs?.length && (
         <div className="module-state">No imports received yet.</div>
       )}
       {runs?.slice(0, 8).map(run => (
