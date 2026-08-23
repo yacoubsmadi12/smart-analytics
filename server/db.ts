@@ -204,6 +204,7 @@ export async function createDataSource(input: {
   name: string;
   type: string;
   connectionRef?: string;
+  secretEnv?: string;
   userId: number;
 }) {
   const db = await getDb();
@@ -214,6 +215,7 @@ export async function createDataSource(input: {
       name: input.name,
       type: input.type,
       connectionRef: input.connectionRef,
+      secretEnv: input.secretEnv,
       status: "pending",
     });
   await db
@@ -225,18 +227,20 @@ export async function createDataSource(input: {
       metadata: JSON.stringify({
         type: input.type,
         connectionRef: input.connectionRef,
+        secretEnv: input.secretEnv,
       }),
     });
   return result;
 }
 
-export async function updateDataSourceSync(sourceId: number, status: string) {
+export async function updateDataSourceSync(sourceId: number, status: string, latencyMs?: number) {
   const db = await getDb();
   if (!db) return;
-  await db
-    .update(dataSources)
-    .set({ status, lastSyncAt: new Date() })
-    .where(eq(dataSources.id, sourceId));
+  const now = new Date();
+  const update: Record<string, unknown> = { status, lastSyncAt: now };
+  if (latencyMs !== undefined) update.latencyMs = latencyMs;
+  if (status === "healthy") update.lastSuccessfulCheckAt = now;
+  await db.update(dataSources).set(update).where(eq(dataSources.id, sourceId));
 }
 
 export async function createImportRun(input: {

@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  Clock3,
   ArrowUpRight,
   BarChart3,
   Database,
@@ -20,6 +21,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { connectionFailureGuidance } from "@/lib/connection-feedback";
+import { formatLatency, formatSuccessfulCheck, sourceStatusLabel } from "@/lib/source-observability";
 
 const modules: Record<
   string,
@@ -331,6 +333,7 @@ function DataSourceConsole() {
   );
   const [sourceName, setSourceName] = useState("");
   const [connectionRef, setConnectionRef] = useState("");
+  const [secretEnv, setSecretEnv] = useState("");
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"info" | "success" | "error">("info");
   const showNotice = (message: string, tone: "info" | "success" | "error" = "info") => { setNotice(message); setNoticeTone(tone); };
@@ -338,15 +341,17 @@ function DataSourceConsole() {
   const [rowErrors, setRowErrors] = useState<string[]>([]);
   const [lastRunId, setLastRunId] = useState(0);
   const [mappingText, setMappingText] = useState("{}");
+  const utils = trpc.useUtils();
   const { data: sources, isLoading: sourcesLoading, error: sourcesError, refetch: refetchSources } = trpc.data.sources.useQuery();
   const { data: runs, isLoading: runsLoading, error: runsError, refetch: refetchRuns } = trpc.data.importRuns.useQuery();
   const register = trpc.data.registerSource.useMutation({
-    onSuccess: () => showNotice("Source configuration saved. Add credentials through server secrets before connecting.", "success"),
+    onSuccess: () => { showNotice("Source configuration saved. Add credentials through server secrets before connecting.", "success"); void utils.data.sources.invalidate(); },
     onError: e => showNotice("Source configuration could not be saved. Check the source name and connection reference, then retry.", "error"),
   });
   const testConnection = trpc.data.testConnection.useMutation({
     onSuccess: result => showNotice(result.ok ? result.message : connectionFailureGuidance(method, result.message), result.ok ? "success" : "error"),
     onError: e => showNotice(connectionFailureGuidance(method, e.message), "error"),
+    onSettled: () => { void utils.data.sources.invalidate(); },
   });
   const saveMapping = trpc.data.saveMapping.useMutation({
     onSuccess: () => showNotice("Field mapping saved to the import run.", "success"),
@@ -410,19 +415,25 @@ function DataSourceConsole() {
           or file source below.
         </div>
       )}
-      {sources?.map(source => (
-        <div className="import-run" key={source.id}>
-          <span>
-            <b>{source.name}</b>
-            <small>
-              {source.type} · {source.lastSync}
-            </small>
-          </span>
-          <span>{source.records} records</span>
-          <span className="positive">{source.status}</span>
-          <span>Source</span>
-        </div>
-      ))}
+      {sources?.map(source => {
+        const statusKey = source.status.toLowerCase().replace(/\s+/g, "-");
+        const sourceType = source.type.toLowerCase();
+        return (
+          <article className="source-card" key={source.id}>
+            <div className="source-card-main">
+              <div className="source-identity"><b>{source.name}</b><small>{source.type} · {source.records} records</small></div>
+              <div className="source-card-actions">
+                <span className={`status-badge status-${statusKey}`}><i />{sourceStatusLabel(source.status)}</span>
+                {sourceType !== "manual" && source.connectionRef && <button type="button" className="source-test-btn" disabled={testConnection.isPending} onClick={() => testConnection.mutate({ sourceId: Number(source.id), type: sourceType as "api" | "sftp" | "database", connectionRef: source.connectionRef || "", secretEnv: source.secretEnv || undefined })}>{testConnection.isPending ? <><Loader2 size={11} className="spin" /> Checking</> : "Test now"}</button>}
+              </div>
+            </div>
+            <div className="source-observability">
+              <span><Clock3 size={12} /><b>Response</b> {formatLatency(source.latencyMs)}</span>
+              <span><CheckCircle2 size={12} /><b>Last successful check</b> {formatSuccessfulCheck(source.lastSuccessfulCheckAt)}</span>
+            </div>
+          </article>
+        );
+      })}
       <div className="module-subhead">
         <b>Source setup</b>
         <span>Secrets never enter the browser</span>
@@ -465,6 +476,12 @@ function DataSourceConsole() {
           placeholder="No passwords or tokens in this field"
         />
       </label>
+      {method !== "manual" && (
+        <label className="intake-wide">
+          <span>Server secret name</span>
+          <input value={secretEnv} onChange={e => setSecretEnv(e.target.value.toUpperCase())} placeholder="e.g. OSS_DATABASE_URL" autoComplete="off" />
+        </label>
+      )}
       <div className="intake-actions">
         {method === "manual" && (
           <label className="upload-btn">
@@ -485,6 +502,7 @@ function DataSourceConsole() {
               name: sourceName.trim(),
               type: method,
               connectionRef: connectionRef.trim() || undefined,
+              secretEnv: secretEnv.trim() || undefined,
             })
           }
         >

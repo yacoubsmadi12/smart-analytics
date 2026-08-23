@@ -1247,6 +1247,104 @@ nav em {
   color: #7895a0;
   font-size: 10px;
 }
+.source-card {
+  margin-top: 8px;
+  padding: 12px 13px;
+  border: 1px solid #1b3b47;
+  border-radius: 8px;
+  background: rgba(12, 35, 46, 0.72);
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+.source-card:hover {
+  border-color: #2d7180;
+  transform: translateY(-1px);
+}
+.source-card-main,
+.source-observability {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.source-identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.source-identity b {
+  color: #dcebed;
+  font-size: 11px;
+}
+.source-identity small {
+  color: #71919c;
+  font-size: 9px;
+}
+.source-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.source-test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #2b6672;
+  border-radius: 5px;
+  padding: 5px 8px;
+  background: transparent;
+  color: #78d9df;
+  font: 9px "DM Mono";
+  cursor: pointer;
+}
+.source-test-btn:hover:not(:disabled) { background: rgba(39, 143, 157, 0.14); }
+.source-test-btn:disabled { cursor: wait; opacity: .68; }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font: 9px "DM Mono";
+  white-space: nowrap;
+}
+.status-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.status-healthy { color: #76dbb1; background: rgba(40, 132, 101, 0.12); }
+.status-warning { color: #e8c273; background: rgba(190, 142, 42, 0.12); }
+.status-pending { color: #86a8b3; background: rgba(134, 168, 179, 0.1); }
+.status-critical,
+.status-offline { color: #f28b83; background: rgba(190, 58, 58, 0.12); }
+.status-unknown { color: #b8c9ce; background: rgba(184, 201, 206, 0.1); }
+.source-observability {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(43, 83, 95, 0.55);
+  color: #86a8b3;
+  font-size: 9px;
+}
+.source-observability span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.source-observability svg { color: #65cad3; }
+.source-observability b { color: #bad0d4; font-weight: 500; }
+@media (max-width: 760px) {
+  .source-card-main { align-items: flex-start; }
+  .source-observability { display: grid; gap: 6px; }
+}
+
 .module-state.error,
 .module-feedback.error {
   color: #f28b83;

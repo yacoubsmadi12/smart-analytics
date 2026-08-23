@@ -135,3 +135,11 @@
 - [x] Add clear database connection error messages with actionable guidance
 - [x] Add Vitest coverage for connection loading/error presentation helpers
 - [x] Verify the updated Data Management flow on desktop and mobile and save a checkpoint
+
+# Source Status Observability Update
+
+- [x] Persist connection latency and last successful check time for each data source
+- [x] Return source status observability fields from the protected sources procedure
+- [x] Render visible status badges, latency, and last successful check in Data Management
+- [x] Add tests for connection observability persistence and formatting
+- [x] Verify source cards on desktop/mobile and save a checkpoint

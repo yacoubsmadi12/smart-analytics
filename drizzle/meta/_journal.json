@@ -36,6 +36,20 @@
       "when": 1787507749392,
       "tag": "0004_low_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1787510668047,
+      "tag": "0005_grey_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1787511088109,
+      "tag": "0006_minor_vampiro",
+      "breakpoints": true
     }
   ]
 }

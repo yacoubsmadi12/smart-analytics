@@ -1,0 +1,1 @@
+ALTER TABLE `dataSources` ADD `secretEnv` varchar(100);

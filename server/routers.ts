@@ -295,6 +295,10 @@ export const appRouter = router({
         type: row.type.toUpperCase(),
         status: row.status,
         lastSync: row.lastSyncAt ? row.lastSyncAt.toISOString() : "Never",
+        latencyMs: row.latencyMs ?? null,
+        lastSuccessfulCheckAt: row.lastSuccessfulCheckAt ? row.lastSuccessfulCheckAt.toISOString() : null,
+        connectionRef: row.connectionRef,
+        secretEnv: row.secretEnv,
         records: 0,
       }));
     }),
@@ -307,6 +311,7 @@ export const appRouter = router({
           name: z.string().min(2).max(120),
           type: z.enum(["manual", "api", "sftp", "database"]),
           connectionRef: z.string().max(200).optional(),
+          secretEnv: z.string().regex(/^[A-Z][A-Z0-9_]{2,80}$/).optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -328,6 +333,7 @@ export const appRouter = router({
         const secret = input.secretEnv ? process.env[input.secretEnv] : undefined;
         if (input.type !== "api" && !secret)
           throw new TRPCError({ code: "BAD_REQUEST", message: "A server-side secretEnv is required for live SFTP or database checks" });
+        const startedAt = Date.now();
         if (input.type === "api") {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
@@ -335,11 +341,15 @@ export const appRouter = router({
             const headers: Record<string, string> = {};
             if (secret) headers.Authorization = `Bearer ${secret}`;
             const response = await fetch(input.connectionRef, { headers, signal: controller.signal });
-            if (input.sourceId) await updateDataSourceSync(input.sourceId, response.ok ? "healthy" : "warning");
-            return { ok: response.ok, status: response.status, checkedAt: new Date(), message: response.ok ? "API responded successfully" : "API responded with an error" };
+            const latencyMs = Date.now() - startedAt;
+            const checkedAt = new Date();
+            if (input.sourceId) await updateDataSourceSync(input.sourceId, response.ok ? "healthy" : "warning", latencyMs);
+            return { ok: response.ok, status: response.status, checkedAt, latencyMs, lastSuccessfulCheckAt: response.ok ? checkedAt : undefined, message: response.ok ? "API responded successfully" : "API responded with an error" };
           } catch {
-            if (input.sourceId) await updateDataSourceSync(input.sourceId, "warning");
-            return { ok: false, status: 0, checkedAt: new Date(), message: "API connection failed or timed out" };
+            const latencyMs = Date.now() - startedAt;
+            const checkedAt = new Date();
+            if (input.sourceId) await updateDataSourceSync(input.sourceId, "warning", latencyMs);
+            return { ok: false, status: 0, checkedAt, latencyMs, lastSuccessfulCheckAt: undefined, message: "API connection failed or timed out" };
           } finally { clearTimeout(timeout); }
         }
         if (input.type === "sftp") {
@@ -353,16 +363,18 @@ export const appRouter = router({
           try {
             await client.connect({ host: target.hostname, port: Number(config.port || 22), username: String(config.username || ""), password: config.password ? String(config.password) : undefined, privateKey: config.privateKey ? String(config.privateKey) : undefined });
             await client.list(target.pathname);
-            if (input.sourceId) await updateDataSourceSync(input.sourceId, "healthy");
-            return { ok: true, status: 200, checkedAt: new Date(), message: "SFTP handshake and remote path check succeeded" };
-          } catch { if (input.sourceId) await updateDataSourceSync(input.sourceId, "warning"); return { ok: false, status: 0, checkedAt: new Date(), message: "SFTP handshake or remote path check failed" }; }
+            const latencyMs = Date.now() - startedAt;
+            const checkedAt = new Date();
+            if (input.sourceId) await updateDataSourceSync(input.sourceId, "healthy", latencyMs);
+            return { ok: true, status: 200, checkedAt, latencyMs, lastSuccessfulCheckAt: checkedAt, message: "SFTP handshake and remote path check succeeded" };
+          } catch { const latencyMs = Date.now() - startedAt; const checkedAt = new Date(); if (input.sourceId) await updateDataSourceSync(input.sourceId, "warning", latencyMs); return { ok: false, status: 0, checkedAt, latencyMs, lastSuccessfulCheckAt: undefined, message: "SFTP handshake or remote path check failed" }; }
           finally { await client.end().catch(() => undefined); }
         }
         const uri = secret || "";
         if (!/^mysql:\/\/.+/.test(uri)) throw new TRPCError({ code: "BAD_REQUEST", message: "The database secret must contain a mysql:// connection URI" });
         let connection: Awaited<ReturnType<typeof mysql.createConnection>> | undefined;
-        try { connection = await mysql.createConnection(uri); await connection.query("SELECT 1"); if (input.sourceId) await updateDataSourceSync(input.sourceId, "healthy"); return { ok: true, status: 200, checkedAt: new Date(), message: "Database handshake succeeded" }; }
-        catch { if (input.sourceId) await updateDataSourceSync(input.sourceId, "warning"); return { ok: false, status: 0, checkedAt: new Date(), message: "Database handshake failed" }; }
+        try { connection = await mysql.createConnection(uri); await connection.query("SELECT 1"); const latencyMs = Date.now() - startedAt; const checkedAt = new Date(); if (input.sourceId) await updateDataSourceSync(input.sourceId, "healthy", latencyMs); return { ok: true, status: 200, checkedAt, latencyMs, lastSuccessfulCheckAt: checkedAt, message: "Database handshake succeeded" }; }
+        catch { const latencyMs = Date.now() - startedAt; const checkedAt = new Date(); if (input.sourceId) await updateDataSourceSync(input.sourceId, "warning", latencyMs); return { ok: false, status: 0, checkedAt, latencyMs, lastSuccessfulCheckAt: undefined, message: "Database handshake failed" }; }
         finally { await connection?.end().catch(() => undefined); }
       }),
     saveMapping: protectedProcedure
