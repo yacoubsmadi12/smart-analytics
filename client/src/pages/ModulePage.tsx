@@ -596,11 +596,58 @@ function DataSourceConsole() {
   );
 }
 
+function UserManagementPanel() {
+  const utils = trpc.useUtils();
+  const usersQuery = trpc.admin.users.useQuery();
+  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"user" | "admin">("user");
+  const [feedback, setFeedback] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const createUser = trpc.admin.createUser.useMutation({
+    onSuccess: () => {
+      setFeedback({ message: "User created successfully and is ready for local sign-in.", tone: "success" });
+      setUsername(""); setName(""); setEmail(""); setPassword(""); setRole("user");
+      void utils.admin.users.invalidate();
+    },
+    onError: error => setFeedback({ message: error.message || "User could not be created. Check the form and try again.", tone: "error" }),
+  });
+  const updateRole = trpc.admin.updateUserRole.useMutation({
+    onSuccess: () => { setFeedback({ message: "User role updated successfully.", tone: "success" }); void utils.admin.users.invalidate(); },
+    onError: error => setFeedback({ message: error.message || "User role could not be updated.", tone: "error" }),
+  });
+
+  return (
+    <div className="user-management-panel">
+      <div className="user-management-head">
+        <div><span className="section-kicker">IDENTITY CONTROL</span><h2>Create and manage users</h2><p>Use local credentials and assign the access role before the user signs in.</p></div>
+        <ShieldCheck size={24} />
+      </div>
+      <form className="user-create-form" onSubmit={event => { event.preventDefault(); setFeedback(null); createUser.mutate({ username, name, email: email || undefined, password, role }); }}>
+        <label><span>Full name</span><input value={name} onChange={event => setName(event.target.value)} placeholder="Network Operations" required /></label>
+        <label><span>Username</span><input value={username} onChange={event => setUsername(event.target.value.toLowerCase())} placeholder="network.ops" pattern="[a-z0-9._-]{3,80}" required /></label>
+        <label><span>Email <em>optional</em></span><input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="ops@example.com" /></label>
+        <label><span>Temporary password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Minimum 8 characters" minLength={8} required /></label>
+        <label><span>Role</span><select value={role} onChange={event => setRole(event.target.value as "user" | "admin")}><option value="user">User — operational access</option><option value="admin">Admin — full management access</option></select></label>
+        <button className="primary-action user-create-submit" type="submit" disabled={createUser.isPending}>{createUser.isPending ? <><Loader2 size={14} className="spin" /> Creating user…</> : "Create user"}</button>
+      </form>
+      <p className="user-form-hint">Passwords are hashed server-side. The password value never appears in the user list or audit payload.</p>
+      {feedback && <div className={`module-feedback ${feedback.tone}`}>{feedback.message}</div>}
+      <div className="user-list-head"><div><span className="section-kicker">ACCESS DIRECTORY</span><h2>Saved users</h2></div><span>{usersQuery.data?.length || 0} accounts</span></div>
+      {usersQuery.isLoading ? <div className="module-state"><Loader2 size={16} className="spin" /> Loading users…</div> : usersQuery.error ? <div className="module-feedback error">Unable to load users. Refresh the page or check the database connection. {usersQuery.error.message}</div> : usersQuery.data?.length ? <div className="user-directory">{usersQuery.data.map(user => <div className="user-directory-row" key={user.id}><div className="user-directory-identity"><div className="user-avatar">{(user.name || user.username || "U").charAt(0).toUpperCase()}</div><div><b>{user.name || "Unnamed user"}</b><small>@{user.username || "—"} {user.email ? `· ${user.email}` : ""}</small></div></div><div className="user-directory-role"><select aria-label={`Role for ${user.username || user.id}`} value={user.role} disabled={updateRole.isPending} onChange={event => updateRole.mutate({ userId: user.id, role: event.target.value as "user" | "admin" })}><option value="user">User</option><option value="admin">Admin</option></select><small>Last sign-in: {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleString() : "Never"}</small></div></div>)}</div> : <div className="module-state">No users found. Create the first local account above.</div>}
+    </div>
+  );
+}
+
 export default function ModulePage({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
   const { data: permissions, isLoading } = trpc.auth.permissions.useQuery();
   const { data: liveSources } = trpc.data.sources.useQuery(undefined, {
     enabled: slug === "data-management",
+  });
+  const { data: managedUsers } = trpc.admin.users.useQuery(undefined, {
+    enabled: slug === "user-management" && Boolean(permissions?.grants?.includes("users.manage")),
   });
   const { data: dashboardSummary } = trpc.dashboard.summary.useQuery(undefined, {
     enabled: Boolean(permissions),
@@ -646,7 +693,7 @@ export default function ModulePage({ slug }: { slug: string }) {
       </section>
       <section className="standalone-metric">
         <strong>
-          {slug === "data-management" ? liveSources?.length || 0 : liveMetric || item.metric}
+          {slug === "data-management" ? liveSources?.length || 0 : slug === "user-management" ? managedUsers?.length || 0 : liveMetric || item.metric}
         </strong>
         <span>{item.metricLabel}</span>
         <ArrowUpRight size={18} />
@@ -654,6 +701,10 @@ export default function ModulePage({ slug }: { slug: string }) {
       {slug === "data-management" ? (
         <section className="standalone-panel">
           <DataSourceConsole />
+        </section>
+      ) : slug === "user-management" ? (
+        <section className="standalone-panel">
+          <UserManagementPanel />
         </section>
       ) : (
         <section className="standalone-panel">

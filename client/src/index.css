@@ -2085,6 +2085,38 @@ nav em {
   border-radius: 11px;
   background: linear-gradient(145deg, #10202b, #0c1923);
 }
+.user-management-panel { display: grid; gap: 18px; }
+.user-management-head, .user-list-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.user-management-head h2, .user-list-head h2 { margin: 5px 0 4px; color: #e2eff0; font-size: 18px; }
+.user-management-head p { max-width: 620px; margin: 0; color: #7999a3; font-size: 11px; line-height: 1.6; }
+.user-management-head > svg { color: #67d6d8; flex: 0 0 auto; }
+.user-create-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; border: 1px solid #1b3b47; border-radius: 8px; background: rgba(8, 25, 34, .58); }
+.user-create-form label { display: grid; gap: 6px; }
+.user-create-form label span { color: #8ba9b1; font: 9px "DM Mono"; text-transform: uppercase; letter-spacing: .06em; }
+.user-create-form label em { color: #577781; font-style: normal; text-transform: none; }
+.user-create-form input, .user-create-form select, .user-directory-role select { width: 100%; border: 1px solid #294c59; border-radius: 5px; padding: 10px 11px; background: #0a1d27; color: #d8e9eb; font-size: 11px; outline: none; }
+.user-create-form input:focus, .user-create-form select:focus, .user-directory-role select:focus { border-color: #51cbd2; box-shadow: 0 0 0 2px rgba(81, 203, 210, .12); }
+.user-create-submit { align-self: end; min-height: 38px; border: 1px solid #38aeb8; border-radius: 5px; background: linear-gradient(135deg, #167b88, #135b76); color: #e4ffff; font-size: 11px; cursor: pointer; }
+.user-create-submit:disabled { cursor: wait; opacity: .65; }
+.user-form-hint { margin: -9px 2px 0; color: #64838d; font-size: 10px; line-height: 1.5; }
+.user-list-head { align-items: center; padding-top: 10px; border-top: 1px solid #1b3b47; }
+.user-list-head > span { color: #71929c; font: 10px "DM Mono"; }
+.user-directory { display: grid; gap: 8px; }
+.user-directory-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 11px 12px; border: 1px solid #1b3b47; border-radius: 7px; background: rgba(12, 35, 46, .68); }
+.user-directory-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.user-avatar { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #2a7480; border-radius: 50%; background: #123b49; color: #76e2dd; font: 12px "DM Mono"; flex: 0 0 auto; }
+.user-directory-identity > div:last-child { display: grid; gap: 4px; min-width: 0; }
+.user-directory-identity b { color: #dbeaec; font-size: 11px; }
+.user-directory-identity small, .user-directory-role small { color: #73939c; font-size: 9px; overflow-wrap: anywhere; }
+.user-directory-role { display: grid; justify-items: end; gap: 5px; min-width: 145px; }
+.user-directory-role select { width: auto; min-width: 110px; padding: 6px 8px; font: 9px "DM Mono"; }
+@media (max-width: 760px) {
+  .user-create-form { grid-template-columns: 1fr; }
+  .user-create-submit { width: 100%; }
+  .user-directory-row { align-items: flex-start; flex-direction: column; gap: 11px; }
+  .user-directory-role { width: 100%; justify-items: start; }
+  .user-directory-role select { width: 100%; }
+}
 .standalone-panel-head {
   display: flex;
   justify-content: space-between;

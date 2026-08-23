@@ -10,3 +10,11 @@ The Data Management source cards were reviewed at 375x812 and 1280x720. The resp
 ## Source status cards verification
 
 The source observability layout was reviewed at 375x812 and 1280x720. The empty Data Management state remains responsive and readable. Populated source cards use a compact two-row layout: identity and status/test action on the first row, followed by response latency and last successful check details. The responsive CSS collapses observability details into a readable vertical stack on mobile.
+
+## User Management verification
+
+The standalone User Management page was reviewed at 375x812 and 1280x720. The create-user form remains readable on mobile, the role selector is accessible, saved users are shown from the live database query, and each row exposes an editable role selector. The page is protected by the existing users.manage permission.
+
+## User Management repair verification
+
+The standalone User Management page was reviewed at 375x812 and 1280x720 after the CRUD repair. The live active-profile count now matches the database-backed directory count. The form and role selectors remain readable and usable on mobile, while the desktop layout presents the create form and saved-user directory side by side in a clear admin workflow.

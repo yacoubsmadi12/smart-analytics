@@ -16,6 +16,9 @@ import {
   getUserByUsername,
   listAiConversations,
   listDataSources,
+  listLocalUsers,
+  createLocalUser,
+  updateLocalUserRole,
   listImportRuns,
   verifyLocalPassword,
 } from "./db";
@@ -534,6 +537,39 @@ export const appRouter = router({
     }),
   }),
   admin: router({
+    users: protectedProcedure.query(({ ctx }) => {
+      adminOnly(ctx.user);
+      return listLocalUsers();
+    }),
+    createUser: protectedProcedure
+      .input(z.object({
+        username: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,80}$/),
+        password: z.string().min(8).max(128),
+        name: z.string().trim().min(2).max(160),
+        email: z.string().trim().email().max(320).optional(),
+        role: z.enum(["user", "admin"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        adminOnly(ctx.user);
+        try {
+          return await createLocalUser({ ...input, actorUserId: ctx.user.id });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "User could not be created";
+          throw new TRPCError({ code: message === "Username already exists" ? "CONFLICT" : "BAD_REQUEST", message });
+        }
+      }),
+    updateUserRole: protectedProcedure
+      .input(z.object({ userId: z.number().int().positive(), role: z.enum(["user", "admin"]) }))
+      .mutation(async ({ ctx, input }) => {
+        adminOnly(ctx.user);
+        try {
+          const updated = await updateLocalUserRole({ ...input, actorUserId: ctx.user.id });
+          if (!updated) throw new Error("User role could not be loaded after update");
+          return updated;
+        } catch (error) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "User role could not be updated" });
+        }
+      }),
     accessCheck: protectedProcedure.query(({ ctx }) => {
       adminOnly(ctx.user);
       return { allowed: true, role: ctx.user.role };

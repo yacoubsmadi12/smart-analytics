@@ -1,5 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { scryptSync, timingSafeEqual } from "node:crypto";
+import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   aiConversations,
@@ -108,7 +108,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 const LOCAL_ADMIN_USERNAME = "admin";
 const LOCAL_ADMIN_PASSWORD = "admin";
 const LOCAL_ADMIN_SALT = "smart-analytics-local-v1";
-const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) =>
+export const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) =>
   scryptSync(password, salt, 64).toString("hex");
 
 export async function ensureLocalAdmin() {
@@ -127,6 +127,63 @@ export async function ensureLocalAdmin() {
       role: "admin",
     });
   return getUserByUsername(LOCAL_ADMIN_USERNAME);
+}
+
+export type LocalRole = "user" | "admin";
+
+export type PublicLocalUser = {
+  id: number;
+  username: string | null;
+  name: string | null;
+  email: string | null;
+  role: LocalRole;
+  createdAt: Date;
+  lastSignedIn: Date;
+};
+
+function toPublicLocalUser(user: typeof users.$inferSelect): PublicLocalUser {
+  return { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt, lastSignedIn: user.lastSignedIn };
+}
+
+export async function listLocalUsers() {
+  const db = await getDb();
+  if (!db) return [] as PublicLocalUser[];
+  const result = await db.select().from(users).orderBy(desc(users.createdAt));
+  return result.map(toPublicLocalUser);
+}
+
+export async function createLocalUser(input: { username: string; password: string; name: string; email?: string; role: LocalRole; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const username = input.username.trim().toLowerCase();
+  if (await getUserByUsername(username)) throw new Error("Username already exists");
+  await db.insert(users).values({ openId: `local_${randomUUID()}`, username, passwordHash: hashLocalPassword(input.password), name: input.name.trim(), email: input.email?.trim() || null, loginMethod: "local", role: input.role });
+  const created = await getUserByUsername(username);
+  if (!created) throw new Error("User was created but could not be loaded");
+  await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.created", resource: username, metadata: JSON.stringify({ role: input.role }) });
+  return toPublicLocalUser(created);
+}
+
+export async function updateLocalUserRole(input: { userId: number; role: LocalRole; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const target = await getUserById(input.userId);
+  if (!target) throw new Error("User not found");
+  if (target.role === "admin" && input.role !== "admin") {
+    const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin"));
+    if (admins.length <= 1) throw new Error("The last administrator cannot be demoted");
+  }
+  await db.update(users).set({ role: input.role }).where(eq(users.id, input.userId));
+  await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.role_updated", resource: target.username || String(target.id), metadata: JSON.stringify({ from: target.role, to: input.role }) });
+  const updated = await getUserById(input.userId);
+  return updated ? toPublicLocalUser(updated) : undefined;
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0];
 }
 
 export async function getUserByUsername(username: string) {

@@ -143,3 +143,11 @@
 - [x] Render visible status badges, latency, and last successful check in Data Management
 - [x] Add tests for connection observability persistence and formatting
 - [x] Verify source cards on desktop/mobile and save a checkpoint
+
+# User Management Repair
+
+- [x] Diagnose why the User Management create-user and role assignment flow is unavailable or failing
+- [x] Add a protected create-user procedure with server-side role validation and password hashing
+- [x] Build a working User Management create-user form with role selection and clear feedback
+- [x] Add tests for admin authorization, validation, user creation, and assigned roles
+- [x] Verify User Management on desktop/mobile and save a checkpoint
