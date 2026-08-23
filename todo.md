@@ -7,11 +7,11 @@
 - [x] Extend relational schema for telecom analytics, users, roles, permissions, and audit logs
 - [x] Add protected tRPC procedures for dashboard, map, priorities, data sources, audit, and AI
 - [x] Build executive overview KPIs, trends, top priorities, and Fix 5 actions
-- [ ] Build interactive intelligence map with layers, filters, clusters, heatmap styling, and site details
-- [ ] Build network, customer experience, complaints, infrastructure, sales, marketing, revenue, and priorities views
-- [ ] Build complaint/network correlation and hotspot analysis presentation
+- [x] Build interactive intelligence map with layers, filters, clusters, heatmap styling, and site details
+- [x] Build network, customer experience, complaints, infrastructure, sales, marketing, revenue, and priorities views
+- [x] Build complaint/network correlation and hotspot analysis presentation
 - [x] Build AI decision assistant UI with permission-scoped conversation history
-- [ ] Build data management, validation, integrations, settings, user management, and audit views
+- [x] Build data management, validation, integrations, settings, user management, and audit views
 - [x] Add realistic preview data without fabricated reviews, ratings, or testimonials
 - [x] Add vitest coverage for authorization and analytics procedures
 - [x] Run typecheck, tests, and production build
@@ -28,3 +28,7 @@
 - [x] Add tests for the ai.history procedure and persisted conversation flow
 - [x] Add a Vitest test that persists an AI conversation and verifies it is returned by ai.history
 - [x] Add a Vitest test confirming conversation history is scoped by user and domain
+- [x] Wire map layer controls and Explore search to real map data behavior
+- [x] Implement data-driven clustering and heatmap behavior on the map
+- [x] Add integrations management UI and connect validation mutations with feedback states
+- [x] Add loading, restricted, empty, and error states for admin data/user/audit/settings screens
