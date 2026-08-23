@@ -1,28 +1,30 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean } from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
-  name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
+  name: text("name"), email: varchar("email", { length: 320 }), loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(), updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(), lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
+export type User = typeof users.$inferSelect; export type InsertUser = typeof users.$inferInsert;
 
-export type User = typeof users.$inferSelect;
-export type InsertUser = typeof users.$inferInsert;
+export const roles = mysqlTable("roles", { id: int("id").autoincrement().primaryKey(), name: varchar("name", { length: 80 }).notNull().unique(), description: text("description"), isSystem: boolean("isSystem").default(true).notNull(), createdAt: timestamp("createdAt").defaultNow().notNull() });
+export const permissions = mysqlTable("permissions", { id: int("id").autoincrement().primaryKey(), key: varchar("key", { length: 120 }).notNull().unique(), description: text("description") });
+export const rolePermissions = mysqlTable("rolePermissions", { roleId: int("roleId").notNull(), permissionId: int("permissionId").notNull() });
 
-// TODO: Add your tables here
+export const sites = mysqlTable("sites", { id: int("id").autoincrement().primaryKey(), siteCode: varchar("siteCode", { length: 32 }).notNull().unique(), name: varchar("name", { length: 160 }).notNull(), region: varchar("region", { length: 80 }), latitude: decimal("latitude", { precision: 10, scale: 7 }).notNull(), longitude: decimal("longitude", { precision: 10, scale: 7 }).notNull(), status: mysqlEnum("status", ["healthy", "warning", "degraded", "critical"]).default("healthy").notNull(), createdAt: timestamp("createdAt").defaultNow().notNull() });
+export const cells = mysqlTable("cells", { id: int("id").autoincrement().primaryKey(), siteId: int("siteId").notNull(), cellCode: varchar("cellCode", { length: 40 }).notNull().unique(), technology: mysqlEnum("technology", ["2G", "3G", "4G", "5G"]).notNull(), availability: decimal("availability", { precision: 5, scale: 2 }), congestion: decimal("congestion", { precision: 5, scale: 2 }), throughput: decimal("throughput", { precision: 10, scale: 2 }) });
+export const networkKpis = mysqlTable("networkKpis", { id: int("id").autoincrement().primaryKey(), siteId: int("siteId").notNull(), recordedAt: timestamp("recordedAt").notNull(), availability: decimal("availability", { precision: 5, scale: 2 }), trafficTb: decimal("trafficTb", { precision: 10, scale: 3 }), congestion: decimal("congestion", { precision: 5, scale: 2 }), throughputMbps: decimal("throughputMbps", { precision: 10, scale: 2 }) });
+
+export const customers = mysqlTable("customers", { id: int("id").autoincrement().primaryKey(), externalRef: varchar("externalRef", { length: 80 }).notNull().unique(), segment: mysqlEnum("segment", ["consumer", "enterprise", "high_value"]).notNull(), region: varchar("region", { length: 80 }), churnRisk: decimal("churnRisk", { precision: 5, scale: 2 }), lifetimeValue: decimal("lifetimeValue", { precision: 12, scale: 2 }) });
+export const complaints = mysqlTable("complaints", { id: int("id").autoincrement().primaryKey(), customerId: int("customerId"), siteId: int("siteId"), category: varchar("category", { length: 80 }).notNull(), severity: mysqlEnum("severity", ["low", "medium", "high", "critical"]).notNull(), status: mysqlEnum("status", ["open", "in_progress", "resolved"]).default("open").notNull(), createdAt: timestamp("createdAt").defaultNow().notNull(), resolvedAt: timestamp("resolvedAt") });
+
+export const fiberInfrastructure = mysqlTable("fiberInfrastructure", { id: int("id").autoincrement().primaryKey(), nodeCode: varchar("nodeCode", { length: 40 }).notNull().unique(), region: varchar("region", { length: 80 }), latitude: decimal("latitude", { precision: 10, scale: 7 }), longitude: decimal("longitude", { precision: 10, scale: 7 }), availability: decimal("availability", { precision: 5, scale: 2 }), status: varchar("status", { length: 40 }) });
+export const salesOpportunities = mysqlTable("salesOpportunities", { id: int("id").autoincrement().primaryKey(), customerId: int("customerId"), region: varchar("region", { length: 80 }), stage: varchar("stage", { length: 40 }), value: decimal("value", { precision: 12, scale: 2 }), probability: decimal("probability", { precision: 5, scale: 2 }) });
+export const marketingCampaigns = mysqlTable("marketingCampaigns", { id: int("id").autoincrement().primaryKey(), name: varchar("name", { length: 160 }).notNull(), region: varchar("region", { length: 80 }), status: varchar("status", { length: 40 }), budget: decimal("budget", { precision: 12, scale: 2 }), conversionRate: decimal("conversionRate", { precision: 5, scale: 2 }) });
+export const revenues = mysqlTable("revenues", { id: int("id").autoincrement().primaryKey(), region: varchar("region", { length: 80 }), period: varchar("period", { length: 20 }).notNull(), actual: decimal("actual", { precision: 14, scale: 2 }), atRisk: decimal("atRisk", { precision: 14, scale: 2 }) });
+
+export const dataSources = mysqlTable("dataSources", { id: int("id").autoincrement().primaryKey(), name: varchar("name", { length: 120 }).notNull(), type: varchar("type", { length: 40 }).notNull(), connectionRef: varchar("connectionRef", { length: 200 }), status: varchar("status", { length: 40 }).default("pending").notNull(), lastSyncAt: timestamp("lastSyncAt"), createdAt: timestamp("createdAt").defaultNow().notNull() });
+export const auditLogs = mysqlTable("auditLogs", { id: int("id").autoincrement().primaryKey(), userId: int("userId"), action: varchar("action", { length: 120 }).notNull(), resource: varchar("resource", { length: 120 }), metadata: text("metadata"), createdAt: timestamp("createdAt").defaultNow().notNull() });
+export const aiConversations = mysqlTable("aiConversations", { id: int("id").autoincrement().primaryKey(), userId: int("userId").notNull(), domain: varchar("domain", { length: 40 }).notNull(), question: text("question").notNull(), answer: text("answer"), createdAt: timestamp("createdAt").defaultNow().notNull() });

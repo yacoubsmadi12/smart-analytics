@@ -1,33 +1,101 @@
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { startLogin } from "@/const";
+import {
+  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Bot, Building2, ChevronDown,
+  CircleHelp, Database, Download, Gauge, Globe2, Layers3, LogOut, MapPin, Menu,
+  MessageSquareWarning, Network, PanelLeftClose, Search, Settings2, ShieldCheck,
+  Signal, Sparkles, Target, Users, Wifi, X, Zap
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { trpc } from "@/lib/trpc";
+import { MapView } from "@/components/Map";
+import { Badge } from "@/components/ui/badge";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+type Lang = "en" | "ar";
+const nav = [
+  ["Executive Overview", "لوحة القيادة التنفيذية", Gauge], ["Intelligence Map", "خريطة الذكاء", Globe2],
+  ["Network", "الشبكة", Signal], ["Customer Experience", "تجربة العميل", Users], ["Customers", "العملاء", Users],
+  ["Complaints", "الشكاوى", MessageSquareWarning], ["Infrastructure / Fiber", "البنية التحتية / الألياف", Wifi],
+  ["Sales", "المبيعات", Target], ["Marketing", "التسويق", Sparkles], ["Business & Revenue", "الأعمال والإيراد", Building2],
+  ["Priorities", "الأولويات", Zap], ["AI Assistant", "مساعد الذكاء الاصطناعي", Bot], ["Alerts", "التنبيهات", AlertTriangle],
+  ["Reports", "التقارير", Download], ["Data Management", "إدارة البيانات", Database], ["User Management", "إدارة المستخدمين", ShieldCheck],
+  ["System Settings", "إعدادات النظام", Settings2], ["Audit Logs", "سجل التدقيق", Activity],
+] as const;
+
+const kpis = [
+  { label: "Network Health", ar: "صحة الشبكة", value: "94.8%", delta: "+2.4%", tone: "good", icon: Signal },
+  { label: "Total Sites", ar: "إجمالي المواقع", value: "1,284", delta: "+18", tone: "good", icon: Network },
+  { label: "Active Customers", ar: "العملاء النشطون", value: "2.84M", delta: "+4.8%", tone: "good", icon: Users },
+  { label: "Open Complaints", ar: "الشكاوى المفتوحة", value: "1,842", delta: "-12.6%", tone: "good", icon: MessageSquareWarning },
+  { label: "CX Risk", ar: "مخاطر تجربة العميل", value: "18.4%", delta: "+1.1%", tone: "warn", icon: AlertTriangle },
+  { label: "Revenue at Risk", ar: "الإيراد المعرّض للخطر", value: "$1.28M", delta: "-$184K", tone: "bad", icon: Building2 },
+];
+
+const priorities = [
+  { area: "Amman West", issue: "4G congestion at 3 cells", impact: "8,420 customers", revenue: "$286K", score: 94, action: "Capacity upgrade" },
+  { area: "Irbid Central", issue: "Fiber outage correlation", impact: "2,180 customers", revenue: "$119K", score: 88, action: "Dispatch fiber crew" },
+  { area: "Zarqa North", issue: "Complaint surge · Internet slow", impact: "5,740 customers", revenue: "$84K", score: 82, action: "Tune radio parameters" },
+  { area: "Aqaba Coast", issue: "Enterprise churn risk", impact: "34 accounts", revenue: "$192K", score: 76, action: "Assign retention squad" },
+  { area: "Salt Heights", issue: "Backhaul utilization > 90%", impact: "3,100 customers", revenue: "$63K", score: 71, action: "Activate microwave link" },
+];
+
+const fixes = [
+  ["Upgrade capacity", "Amman West · 3 congested cells", "High", "+$286K protected"],
+  ["Repair fiber segment", "Irbid Central · node FN-204", "High", "2,180 customers"],
+  ["Tune 4G parameters", "Zarqa North · complaint hotspot", "Medium", "-18% complaints"],
+  ["Retention outreach", "Aqaba Coast · 34 enterprise accounts", "High", "$192K protected"],
+  ["Shift backhaul traffic", "Salt Heights · 92% utilization", "Medium", "+11% headroom"],
+];
+
+function MiniChart() {
+  return <div className="mini-chart" aria-label="Network health trend"><svg viewBox="0 0 520 120" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#18c7d8" stopOpacity=".28"/><stop offset="1" stopColor="#18c7d8" stopOpacity="0"/></linearGradient></defs><path d="M0 92 C28 90 38 68 60 74 S95 100 115 76 S150 56 174 66 S205 82 230 54 S260 70 287 42 S319 64 342 45 S372 28 398 42 S428 58 450 26 S480 38 520 16 L520 120 L0 120Z" fill="url(#fill)"/><path d="M0 92 C28 90 38 68 60 74 S95 100 115 76 S150 56 174 66 S205 82 230 54 S260 70 287 42 S319 64 342 45 S372 28 398 42 S428 58 450 26 S480 38 520 16" fill="none" stroke="#18c7d8" strokeWidth="3"/></svg><div className="chart-labels"><span>06:00</span><span>12:00</span><span>18:00</span><span>Now</span></div></div>;
+}
+
+function IntelligenceMap({ onSite }: { onSite: () => void }) {
+  const [filter, setFilter] = useState<"all" | "healthy" | "warn" | "critical">("all");
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const points = [{ x: 22, y: 32, s: "healthy" }, { x: 34, y: 47, s: "warn" }, { x: 46, y: 27, s: "healthy" }, { x: 54, y: 60, s: "critical" }, { x: 63, y: 39, s: "healthy" }, { x: 71, y: 52, s: "warn" }, { x: 80, y: 30, s: "healthy" }, { x: 88, y: 68, s: "critical" }, { x: 41, y: 73, s: "healthy" }];
+  const visible = filter === "all" ? points : points.filter(p => p.s === filter);
+  return <div className="map-canvas"><MapView className="real-map" initialCenter={{ lat: 31.95, lng: 35.91 }} initialZoom={8} onMapReady={map => { mapRef.current = map; [{ lat: 31.9539, lng: 35.9106, title: "Amman West" }, { lat: 32.5556, lng: 35.8497, title: "Irbid Central" }, { lat: 32.0728, lng: 36.088, title: "Zarqa North" }, { lat: 29.5321, lng: 35.0063, title: "Aqaba Coast" }].forEach(site => new google.maps.Marker({ map, position: site, title: site.title })); }} /><div className="map-overlay"><div className="map-grid"/><div className="map-river"/><div className="map-road road-a"/><div className="map-road road-b"/><div className="map-road road-c"/>{visible.map((p, i) => <button key={i} className={`map-point ${p.s}`} style={{ left: `${p.x}%`, top: `${p.y}%` }} onClick={onSite} aria-label={`Site ${i + 1}`}><span>{i + 1}</span></button>)}<div className="map-city city-a">Amman West</div><div className="map-city city-b">Irbid Central</div><div className="map-city city-c">Zarqa North</div><div className="map-filter"><button className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>All</button><button className={filter === "critical" ? "on" : ""} onClick={() => setFilter("critical")}>Critical</button><button className={filter === "warn" ? "on" : ""} onClick={() => setFilter("warn")}>Warning</button></div><div className="map-controls"><button onClick={() => mapRef.current?.setZoom((mapRef.current.getZoom() || 8) + 1)}>+</button><button onClick={() => mapRef.current?.setZoom(Math.max(3, (mapRef.current.getZoom() || 8) - 1))}>−</button><button><Layers3 size={15}/></button></div><div className="map-legend"><span><i className="dot healthy"/>Healthy</span><span><i className="dot warn"/>Warning</span><span><i className="dot critical"/>Critical</span></div></div></div>;
+}
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
-
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
-  );
+  const { user, isAuthenticated, logout } = useAuth();
+  const [lang, setLang] = useState<Lang>("en");
+  const [active, setActive] = useState("Executive Overview");
+  const [sidebar, setSidebar] = useState(() => typeof window !== "undefined" && window.innerWidth > 760);
+  const [siteOpen, setSiteOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiQuestion, setAiQuestion] = useState("");
+  const trpcUtils = trpc.useUtils();
+  const askAi = trpc.ai.ask.useMutation({ onSuccess: () => trpcUtils.ai.history.invalidate() });
+  const { data: aiHistory, isLoading: aiHistoryLoading, error: aiHistoryError } = trpc.ai.history.useQuery(undefined, { enabled: aiOpen && isAuthenticated });
+  const { data: permissions } = trpc.auth.permissions.useQuery(undefined, { enabled: isAuthenticated });
+  const [layers, setLayers] = useState(true);
+  const [query, setQuery] = useState("");
+  const rtl = lang === "ar";
+  const t = (en: string, ar: string) => lang === "ar" ? ar : en;
+  const role = permissions?.role || user?.role || "user";
+  const grants = new Set(permissions?.grants || ["dashboard.view"]);
+  const navGrant: Record<string, string> = { "Executive Overview": "dashboard.view", "Intelligence Map": "map.view", Network: "network.view", "Customer Experience": "complaints.view", Customers: "customers.view", Complaints: "complaints.view", "Infrastructure / Fiber": "infrastructure.view", Sales: "sales.view", Marketing: "marketing.view", "Business & Revenue": "revenue.view", Priorities: "dashboard.view", "AI Assistant": "ai.ask", Alerts: "dashboard.view", Reports: "dashboard.view", "Data Management": "data.view", "User Management": "users.manage", "System Settings": "settings.manage", "Audit Logs": "audit.view" };
+  const allowed = role === "admin" ? null : new Set(["Executive Overview", "Intelligence Map", "Network", "Customer Experience", "Customers", "Complaints", "Infrastructure / Fiber", "Priorities", "AI Assistant", "Alerts", "Reports"]);
+  const filteredNav = useMemo(() => nav.filter(n => (allowed === null || (allowed.has(n[0]) && grants.has(navGrant[n[0]]))) && `${n[0]} ${n[1]}`.toLowerCase().includes(query.toLowerCase())), [query, role, permissions]);
+  return <div className={`app-shell ${rtl ? "rtl" : ""}`} dir={rtl ? "rtl" : "ltr"}>
+    <aside className={`sidebar ${sidebar ? "open" : "collapsed"}`}>
+      <div className="brand"><div className="brand-mark"><span/><span/><span/></div>{sidebar && <div><strong>Smart<span>Analytics</span></strong><small>TELECOM INTELLIGENCE</small></div>}<button className="icon-btn sidebar-toggle" onClick={() => setSidebar(!sidebar)}>{sidebar ? <PanelLeftClose size={17}/> : <Menu size={18}/>}</button></div>
+      {sidebar && <><div className="workspace"><div className="workspace-dot"/><div><small>WORKSPACE</small><b>Jordan Operations</b></div><ChevronDown size={14}/></div><div className="nav-search"><Search size={15}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t("Filter navigation", "تصفية القائمة")}/></div><div className="nav-label">{t("COMMAND CENTER", "مركز القيادة")}</div><nav>{filteredNav.map(([en, ar, Icon]) => <button key={en} className={active === en ? "active" : ""} onClick={() => setActive(en)}><Icon size={17}/><span>{t(en, ar)}</span>{["Alerts", "Priorities"].includes(en) && <em>{en === "Alerts" ? "7" : "5"}</em>}</button>)}</nav></>}
+      {sidebar && <div className="sidebar-footer"><div className="status-line"><span className="pulse"/> All systems operational</div><div className="version">v2.4.0 · Last sync 2 min ago</div></div>}
+    </aside>
+    <main className="main-content">
+      <header className="topbar"><button className="mobile-menu icon-btn" onClick={() => setSidebar(true)}><Menu size={19}/></button><div className="crumb"><span>{t("Command Center", "مركز القيادة")}</span><b>/</b><strong>{t(active, nav.find(n => n[0] === active)?.[1] || active)}</strong></div><div className="top-actions"><div className="global-search"><Search size={16}/><input placeholder={t("Search sites, cells, customers...", "ابحث عن موقع أو خلية أو عميل...")}/><kbd>⌘ K</kbd></div><button className="lang-switch" onClick={() => setLang(lang === "en" ? "ar" : "en")}>{lang === "en" ? "عربي" : "EN"}</button><button className="top-icon"><Bot size={18}/><i/></button><button className="top-icon"><AlertTriangle size={18}/><i/></button><div className="user-pill"><div className="avatar">{user?.name?.[0] || "A"}</div><div><b>{user?.name || "Admin User"}</b><small>{user?.role === "admin" ? "Super Admin" : "Operations"}</small></div><ChevronDown size={14}/></div>{isAuthenticated && <button className="icon-btn" onClick={() => logout()} title="Logout"><LogOut size={17}/></button>}</div></header>
+      <div className="page-body"><div className="page-heading"><div><div className="eyebrow"><span className="live-dot"/> {t("LIVE OPERATIONS VIEW", "عرض العمليات المباشر")}</div><h1>{t("Good morning, Admin", "صباح الخير، المدير")}</h1><p>{t("A clear view of your network, customers and business impact.", "رؤية واضحة لشبكتك وعملائك وأثر الأعمال.")}</p></div><div className="heading-actions"><Button variant="outline" className="outline-btn"><Download size={16}/> {t("Export report", "تصدير التقرير")}</Button>{grants.has("ai.ask") && <Button className="primary-btn" onClick={() => setAiOpen(true)}><Sparkles size={16}/> {t("Ask AI", "اسأل الذكاء الاصطناعي")}</Button>}</div></div>
+        <section className="kpi-grid">{kpis.map(k => <div className="kpi-card" key={k.label}><div className="kpi-top"><span>{t(k.label, k.ar)}</span><div className={`kpi-icon ${k.tone}`}><k.icon size={17}/></div></div><div className="kpi-value">{k.value}</div><div className={`kpi-delta ${k.tone === "bad" ? "negative" : ""}`}>{k.tone === "bad" ? <ArrowDownRight size={14}/> : <ArrowUpRight size={14}/>} {k.delta} <small>{t("vs last 7 days", "مقارنة بآخر 7 أيام")}</small></div></div>)}</section>
+        <div className="content-grid"><section className="panel chart-panel"><div className="panel-heading"><div><span className="section-kicker">NETWORK PERFORMANCE</span><h2>{t("Network health trend", "اتجاه صحة الشبكة")}</h2></div><select><option>Last 24 hours</option><option>Last 7 days</option></select></div><div className="chart-metric"><strong>94.8%</strong><span className="positive">+2.4%</span><small>availability index</small></div><MiniChart/></section><section className="panel health-panel"><div className="panel-heading"><div><span className="section-kicker">SYSTEM PULSE</span><h2>{t("Operational health", "الصحة التشغيلية")}</h2></div><Activity size={18} className="muted"/></div><div className="health-ring"><div><strong>96</strong><small>/ 100</small></div></div><div className="health-copy"><b>{t("Strong and stable", "قوي ومستقر")}</b><span>{t("All core services are within target.", "جميع الخدمات الأساسية ضمن المستهدف.")}</span></div><div className="health-stats"><span><i className="green"/> Sites online <b>98.6%</b></span><span><i className="cyan"/> Data freshness <b>99.2%</b></span></div></section></div>
+        <div className="content-grid map-row"><section className="panel map-panel"><div className="panel-heading"><div><span className="section-kicker">GEOSPATIAL INTELLIGENCE</span><h2>{t("Intelligence map", "خريطة الذكاء الجغرافي")}</h2></div><div className="map-actions"><button className={layers ? "selected" : ""} onClick={() => setLayers(!layers)}><Layers3 size={15}/> {t("Layers", "الطبقات")}</button><button><Search size={15}/> {t("Explore", "استكشف")}</button></div></div><div className="map-body"><IntelligenceMap onSite={() => setSiteOpen(true)}/>{layers && <div className="layer-panel"><b>{t("Map layers", "طبقات الخريطة")}</b>{["Sites & cells", "Coverage quality", "Complaint hotspots", "Fiber availability", "Revenue at risk"].map((x, i) => <label key={x}><input type="checkbox" defaultChecked={i < 3}/><span>{t(x, ["المواقع والخلايا", "جودة التغطية", "بؤر الشكاوى", "توفر الألياف", "الإيراد المعرّض للخطر"][i])}</span></label>)}</div>}</div></section></div>
+        <div className="content-grid bottom-grid"><section className="panel priorities-panel"><div className="panel-heading"><div><span className="section-kicker">DECISION SUPPORT</span><h2>{t("Top priorities today", "أولويات اليوم")}</h2></div><button className="text-btn">{t("View all", "عرض الكل")} →</button></div><div className="priority-table"><div className="table-head"><span>Priority</span><span>Area / issue</span><span>Customer impact</span><span>Revenue at risk</span><span>Action</span></div>{priorities.map((p, i) => <div className="table-row" key={p.area}><span><b className={`score s${i}`}>{p.score}</b><small>/{100}</small></span><span><b>{p.area}</b><small>{p.issue}</small></span><span>{p.impact}</span><span className="money">{p.revenue}</span><span><button className="action-chip">{p.action}</button></span></div>)}</div></section><section className="panel fix-panel"><div className="panel-heading"><div><span className="section-kicker">SMART RECOMMENDATIONS</span><h2>{t("If I can fix only 5 things today", "إذا استطعت إصلاح 5 أشياء فقط اليوم")}</h2></div><CircleHelp size={17} className="muted"/></div><div className="fix-list">{fixes.map((f, i) => <div className="fix-item" key={f[0]}><span className="fix-num">0{i + 1}</span><div><b>{t(f[0], ["ترقية السعة", "إصلاح مقطع الألياف", "ضبط معايير 4G", "التواصل للاحتفاظ", "تحويل حركة الربط"][i])}</b><small>{f[1]}</small></div><span className={`priority-tag ${f[2].toLowerCase()}`}>{f[2]}</span><em>{f[3]}</em></div>)}</div></section></div>
+      </div>
+    </main>
+    {aiOpen && <div className="drawer-backdrop" onClick={() => setAiOpen(false)}><aside className="site-drawer ai-drawer" onClick={e => e.stopPropagation()}><div className="drawer-head"><div><span className="section-kicker">DECISION COPILOT</span><h2>{t("AI decision assistant", "مساعد القرار الذكي")}</h2><p><Sparkles size={14}/> {t("Permission-scoped intelligence", "ذكاء محكوم بالصلاحيات")}</p></div><button className="icon-btn" onClick={() => setAiOpen(false)}><X size={18}/></button></div><div className="ai-scope"><ShieldCheck size={16}/><span>{t("Context: Network & Customer Experience", "النطاق: الشبكة وتجربة العميل")}</span><i>RBAC</i></div><div className="ai-answer">{askAi.data ? String(askAi.data.answer) : <><Bot size={22}/><b>{t("Ask a business question", "اطرح سؤالاً عن الأعمال")}</b><p>{t("I can explain network issues, customer impact, priority and next action without exposing restricted data.", "يمكنني تفسير مشكلات الشبكة وأثرها على العملاء والأولوية والإجراء التالي دون كشف بيانات غير مصرّح بها.")}</p></>}</div>{aiOpen && <div className="ai-history"><div className="history-title"><span>{t("Recent questions", "الأسئلة الأخيرة")}</span><small>{aiHistoryLoading ? "Loading..." : aiHistoryError ? "Unavailable" : `${aiHistory?.length || 0} saved`}</small></div>{aiHistoryError && <div className="ai-history-error">{t("Conversation history is temporarily unavailable.", "سجل المحادثات غير متاح مؤقتاً.")}</div>}{!aiHistoryLoading && !aiHistoryError && !aiHistory?.length && <div className="ai-history-empty">{t("No saved questions yet. Ask a question to build your decision trail.", "لا توجد أسئلة محفوظة بعد. اطرح سؤالاً لبناء سجل قراراتك.")}</div>}{aiHistory?.slice(0, 3).map(item => <button key={item.id} onClick={() => setAiQuestion(item.question)}><span>{item.question}</span><small>{new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></button>)}</div>}<div className="ai-prompts"><button onClick={() => setAiQuestion("Why is Amman West the top priority today?")}>Why is Amman West the top priority?</button><button onClick={() => setAiQuestion("Which cells correlate with complaint growth?")}>Which cells correlate with complaint growth?</button></div><div className="ai-input"><input value={aiQuestion} onChange={e => setAiQuestion(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && aiQuestion.trim()) askAi.mutate({ question: aiQuestion, domain: "network" }); }} placeholder={t("Ask about your operations...", "اسأل عن عملياتك...")}/><button onClick={() => aiQuestion.trim() && askAi.mutate({ question: aiQuestion, domain: "network" })}><ArrowUpRight size={16}/></button></div></aside></div>}\n    {siteOpen && <div className="drawer-backdrop" onClick={() => setSiteOpen(false)}><aside className="site-drawer" onClick={e => e.stopPropagation()}><div className="drawer-head"><div><span className="section-kicker">SITE DETAILS</span><h2>AMW-042 · Amman West</h2><p><MapPin size={14}/> 31.9539° N, 35.9106° E</p></div><button className="icon-btn" onClick={() => setSiteOpen(false)}><X size={18}/></button></div><div className="site-status"><span className="pulse"/> Operational <b>98.6% availability</b></div><div className="drawer-section"><h3>Network KPIs</h3><div className="detail-grid"><span><small>4G availability</small><b>98.6%</b></span><span><small>Traffic</small><b>1.42 TB</b></span><span><small>Congestion</small><b className="warning-text">94% PRB</b></span><span><small>Throughput</small><b>42.8 Mbps</b></span></div></div><div className="drawer-section"><h3>Customer impact</h3><div className="impact-bar"><span style={{width: "72%"}}/></div><div className="impact-line"><b>8,420</b><span>customers affected</span><em>High impact</em></div></div><div className="drawer-section"><h3>Recommended action</h3><div className="recommend"><Zap size={17}/><div><b>Capacity upgrade</b><p>Add 2 carriers to sectors A and C. Expected relief in 48h.</p></div></div></div><Button className="primary-btn drawer-btn">Open full site view</Button></aside></div>}
+  </div>;
 }

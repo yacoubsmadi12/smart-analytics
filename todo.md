@@ -1,0 +1,30 @@
+# Project TODO
+
+- [x] Establish Smart Analytics dark Telecom NOC/GIS design system and responsive shell
+- [x] Add Arabic/English language toggle with RTL/LTR support
+- [x] Build permission-aware sidebar navigation and top command bar
+- [x] Preserve secure OAuth session flow and add server-side authorization helpers
+- [x] Extend relational schema for telecom analytics, users, roles, permissions, and audit logs
+- [x] Add protected tRPC procedures for dashboard, map, priorities, data sources, audit, and AI
+- [x] Build executive overview KPIs, trends, top priorities, and Fix 5 actions
+- [ ] Build interactive intelligence map with layers, filters, clusters, heatmap styling, and site details
+- [ ] Build network, customer experience, complaints, infrastructure, sales, marketing, revenue, and priorities views
+- [ ] Build complaint/network correlation and hotspot analysis presentation
+- [x] Build AI decision assistant UI with permission-scoped conversation history
+- [ ] Build data management, validation, integrations, settings, user management, and audit views
+- [x] Add realistic preview data without fabricated reviews, ratings, or testimonials
+- [x] Add vitest coverage for authorization and analytics procedures
+- [x] Run typecheck, tests, and production build
+- [x] Verify desktop and mobile rendering with screenshots
+- [ ] Save final checkpoint and deliver project version
+- [x] Implement permission-derived sidebar/topbar visibility using authenticated user role/permission data
+- [x] Add protected tRPC procedures for data sources/integrations management and authorization checks
+- [x] Improve intelligence map interactions with real filtering/search, clustering, heatmap styling, and map controls
+- [x] Expand Vitest coverage for map queries, AI permission paths, and protected data-management endpoints
+- [x] Persist AI conversations in the database and add protected history procedures
+- [x] Render AI conversation history with loading, empty, and error states
+- [x] Add explicit empty-state UI for AI history when no saved conversations exist
+- [x] Handle and render AI history query errors in the AI assistant drawer
+- [x] Add tests for the ai.history procedure and persisted conversation flow
+- [x] Add a Vitest test that persists an AI conversation and verifies it is returned by ai.history
+- [x] Add a Vitest test confirming conversation history is scoped by user and domain

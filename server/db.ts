@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { aiConversations, InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,17 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function createAiConversation(input: { userId: number; domain: string; question: string; answer: string }) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return db.insert(aiConversations).values(input);
+}
+
+export async function listAiConversations(userId: number, domain?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const condition = domain ? and(eq(aiConversations.userId, userId), eq(aiConversations.domain, domain)) : eq(aiConversations.userId, userId);
+  return db.select().from(aiConversations).where(condition).orderBy(desc(aiConversations.createdAt)).limit(20);
+}
+
+// Feature queries are kept server-side so credentials and authorization never reach the client.
