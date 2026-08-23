@@ -76,4 +76,21 @@
 - [x] Save a new checkpoint for the theme update
 - [x] Verify updated platform/dashboard telecom theme visually on desktop
 - [x] Verify updated platform/dashboard telecom theme visually on mobile
-- [ ] Save fresh checkpoint after platform visual verification
+- [x] Save fresh checkpoint after platform visual verification
+
+# English-only UI Update
+
+- [x] Remove Arabic language toggle and all Arabic translation strings from the frontend
+- [x] Remove RTL state, dir attributes, and Arabic-specific display logic
+- [x] Keep all module pages, login, telecom theme, tower, and motion effects in English
+- [x] Verify no Arabic UI strings remain and run typecheck/tests/build
+- [x] Save a new English-only checkpoint
+- [x] Remove all remaining Arabic literals and translation metadata from Home.tsx
+- [x] Simplify frontend copy helpers and data structures to English-only shapes
+- [x] Search client source for Arabic and RTL matches and confirm zero results
+- [x] Refactor Home copy helper and call sites to English-only signatures
+- [x] Refactor Home navigation and KPI/module data to remove empty translation fields
+- [x] Save a fresh checkpoint after the English-only refactor
+- [x] Remove the bilingual Translation type and helper entirely from Home.tsx
+- [x] Replace remaining t(...) wrappers with direct English copy in Home.tsx
+- [x] Rerun typecheck/tests/build after removing the helper

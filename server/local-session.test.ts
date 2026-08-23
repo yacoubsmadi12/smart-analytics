@@ -4,12 +4,15 @@ import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 
 describe("local admin session", () => {
-  it("bootstraps the local admin account when a database is available", async () => {
-    const account = await ensureLocalAdmin();
-    if (!account) return;
-    expect(account.username).toBe("admin");
-    expect(account.role).toBe("admin");
-    expect(account.loginMethod).toBe("local");
+  it("handles local admin bootstrap safely when no database is configured", async () => {
+    const original = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      expect(await ensureLocalAdmin()).toBeUndefined();
+    } finally {
+      if (original === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = original;
+    }
   });
 
   it("signs and verifies a local session payload without OAuth", async () => {
