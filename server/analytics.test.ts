@@ -35,6 +35,11 @@ describe("analytics protected procedures", () => {
     expect(sites.every(site => site.status === "critical")).toBe(true);
   });
 
+  it("returns all operational layer metrics for a site", async () => {
+    const site = await appRouter.createCaller(context("user")).map.siteDetails({ siteId: "AMW-042" });
+    expect(site).toMatchObject({ cells4g: 18, cells5g: 7, customers: 8420, complaints: 128, churn: 3.8, fiber: 92, salesOpportunities: 14, revenueRisk: 184000 });
+  });
+
   it("keeps data sources restricted to administrators", async () => {
     await expect(appRouter.createCaller(context("user")).data.sources()).rejects.toMatchObject({ code: "FORBIDDEN" });
     const sources = await appRouter.createCaller(context("admin")).data.sources();
@@ -60,6 +65,15 @@ describe("analytics protected procedures", () => {
     expect(result.answer).toBe("Mocked decision answer");
     expect(history[0]?.question).toContain("Amman West");
     expect(history[0]?.answer).toBe(result.answer);
+  });
+
+  it("attaches the selected site context to an AI decision trail", async () => {
+    conversationStore.clear();
+    const caller = appRouter.createCaller(context("admin", 22));
+    await caller.ai.ask({ question: "What should we fix first?", domain: "network", siteId: "AMW-042" });
+    const history = await caller.ai.history({ domain: "network" });
+    expect(history[0]?.question).toContain("[Selected site context: AMW-042 · Amman West]");
+    expect(history[0]?.question).toContain("complaints 128");
   });
 
   it("scopes AI history by both user and domain", async () => {

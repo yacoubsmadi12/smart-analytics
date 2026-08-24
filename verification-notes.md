@@ -26,3 +26,7 @@ The User Management directory was reviewed at desktop width after the account-co
 ## Temporary password expiration verification
 
 The User Management page was reviewed at mobile and desktop widths. Account cards now show a clock indicator and the non-sensitive state “Standard password — no temporary expiry” for legacy/admin accounts; newly created or reset accounts will show the remaining seven-day window or an expired/reset-required warning. The layout remains readable and the status line fits the responsive card structure.
+
+## Intelligence Map completion verification
+
+The independent /intelligence-map route renders the Google Maps canvas after local admin login, exposes nine layer toggles (Sites, 4G, 5G, Fiber, Complaints, Churn, Customers, Revenue Risk, Sales Opportunities), shows four site records with status filters, and supports selecting AMW-042 from the site list. The selected-site panel displayed availability, throughput, traffic, congestion, 4G/5G cells, fiber, customers, complaints, churn, revenue risk, and sales opportunities. The AI context input displayed the selected site ID and submits siteId with the question. The first cold screenshot caught transient GIS loading; a retry/fallback path was added, and authenticated browser verification showed the live map and marker overlays.

@@ -171,3 +171,15 @@
 - [x] Add tests for expiration, reset renewal, disabled accounts, and normal passwords
 - [x] Verify the expiration UX on desktop/mobile and save a checkpoint
 - [x] Fix duplicate Clock3 import and add temporaryPasswordExpiresAt to the user-directory view type
+
+# Intelligence Map Completion
+
+- [x] Replace the standalone Intelligence Map placeholder route with the real interactive map surface
+- [x] Add independent map toggles for Sites, 4G, 5G, Fiber, Complaints, Churn, Customers, Revenue Risk, and Sales Opportunities
+- [x] Make Site Details dynamic from the selected site and expose network, traffic, congestion, customers, complaints, churn, fiber, sales, and revenue risk
+- [x] Pass the selected site context into AI questions and persisted decision history
+- [x] Add tests for map layers, dynamic site details, and selected-site AI context
+- [x] Verify Intelligence Map on desktop/mobile and save a checkpoint
+- [x] Prevent duplicate Google Maps script loading when navigating between map surfaces
+- [x] Perform authenticated mobile verification of /intelligence-map after local login, including layer controls and selected-site details
+- [ ] Save a new checkpoint after the verified Intelligence Map implementation

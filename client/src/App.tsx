@@ -7,9 +7,10 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ModulePage from "./pages/ModulePage";
+import IntelligenceMapPage from "./pages/IntelligenceMapPage";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-function ModuleRoute() { const [, params] = useRoute("/:module"); return <ModulePage slug={params?.module || "network"}/>; }
+function ModuleRoute() { const [, params] = useRoute("/:module"); const slug = params?.module || "network"; return slug === "intelligence-map" ? <IntelligenceMapPage /> : <ModulePage slug={slug}/>; }
 
 function Router() {
   const [isLoginRoute] = useRoute("/login");

@@ -124,6 +124,15 @@ const mapSites = [
     availability: 98.6,
     traffic: 1.42,
     congestion: 94,
+    cells4g: 18,
+    cells5g: 7,
+    customers: 8420,
+    complaints: 128,
+    churn: 3.8,
+    fiber: 92,
+    salesOpportunities: 14,
+    revenueRisk: 184000,
+    throughput: 42.8,
   },
   {
     id: "IRC-118",
@@ -134,6 +143,15 @@ const mapSites = [
     availability: 96.1,
     traffic: 0.86,
     congestion: 76,
+    cells4g: 14,
+    cells5g: 4,
+    customers: 6310,
+    complaints: 84,
+    churn: 5.4,
+    fiber: 78,
+    salesOpportunities: 9,
+    revenueRisk: 96000,
+    throughput: 35.2,
   },
   {
     id: "ZN-233",
@@ -144,6 +162,15 @@ const mapSites = [
     availability: 91.4,
     traffic: 1.1,
     congestion: 89,
+    cells4g: 11,
+    cells5g: 2,
+    customers: 5140,
+    complaints: 176,
+    churn: 7.1,
+    fiber: 64,
+    salesOpportunities: 6,
+    revenueRisk: 142000,
+    throughput: 21.7,
   },
   {
     id: "AQ-019",
@@ -154,6 +181,15 @@ const mapSites = [
     availability: 99.2,
     traffic: 0.64,
     congestion: 44,
+    cells4g: 9,
+    cells5g: 3,
+    customers: 2980,
+    complaints: 22,
+    churn: 2.2,
+    fiber: 96,
+    salesOpportunities: 18,
+    revenueRisk: 38000,
+    throughput: 51.4,
   },
 ];
 
@@ -265,6 +301,7 @@ export const appRouter = router({
           domain: z
             .enum(["network", "cx", "sales", "general"])
             .default("general"),
+          siteId: z.string().min(1).max(40).optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -273,13 +310,17 @@ export const appRouter = router({
             code: "FORBIDDEN",
             message: "Choose a permitted intelligence domain",
           });
+        const site = input.siteId ? mapSites.find(item => item.id === input.siteId) : undefined;
+        const scopedQuestion = site
+          ? `[Selected site context: ${site.id} · ${site.name}] Network availability ${site.availability}%, traffic ${site.traffic} TB, congestion ${site.congestion}% PRB, customers ${site.customers}, complaints ${site.complaints}, churn ${site.churn}%, fiber ${site.fiber}%, revenue risk $${site.revenueRisk.toLocaleString()}, sales opportunities ${site.salesOpportunities}.]\n${input.question}`
+          : input.question;
         const response = await invokeLLM({
           messages: [
             {
               role: "system",
-              content: `You are Smart Analytics decision assistant. Answer only from the user's permitted ${input.domain} telecom intelligence context. Do not invent records, expose credentials, or claim actions were executed. Give concise recommendations with assumptions.`,
+              content: `You are Smart Analytics decision assistant. Answer only from the user's permitted ${input.domain} telecom intelligence context. Use the selected site context when provided. Do not invent records, expose credentials, or claim actions were executed. Give concise recommendations with assumptions.`,
             },
-            { role: "user", content: input.question },
+            { role: "user", content: scopedQuestion },
           ],
         });
         const answer =
@@ -289,7 +330,7 @@ export const appRouter = router({
         await createAiConversation({
           userId: ctx.user.id,
           domain: input.domain,
-          question: input.question,
+          question: scopedQuestion,
           answer,
         });
         return { answer, domain: input.domain, loggedAt: new Date() };

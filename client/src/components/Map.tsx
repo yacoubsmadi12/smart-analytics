@@ -92,21 +92,33 @@ const FORGE_BASE_URL =
   "https://forge.butterfly-effect.dev";
 const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
 
+let mapScriptPromise: Promise<void> | null = null;
 function loadMapScript() {
-  return new Promise(resolve => {
+  if (window.google?.maps) return Promise.resolve();
+  if (mapScriptPromise) return mapScriptPromise;
+  mapScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>("script[data-smart-analytics-maps]");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Google Maps could not be loaded")), { once: true });
+      return;
+    }
     const script = document.createElement("script");
+    script.dataset.smartAnalyticsMaps = "true";
     script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
-      resolve(null);
-      script.remove(); // Clean up immediately
+      resolve();
+      script.remove();
     };
     script.onerror = () => {
-      console.error("Failed to load Google Maps script");
+      mapScriptPromise = null;
+      reject(new Error("Google Maps could not be loaded. Check the maps integration and try again."));
     };
     document.head.appendChild(script);
   });
+  return mapScriptPromise;
 }
 
 interface MapViewProps {
@@ -114,6 +126,7 @@ interface MapViewProps {
   initialCenter?: google.maps.LatLngLiteral;
   initialZoom?: number;
   onMapReady?: (map: google.maps.Map) => void;
+  onMapError?: (error: Error) => void;
 }
 
 export function MapView({
@@ -121,9 +134,11 @@ export function MapView({
   initialCenter = { lat: 37.7749, lng: -122.4194 },
   initialZoom = 12,
   onMapReady,
+  onMapError,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<google.maps.Map | null>(null);
+  const reportMapError = usePersistFn((error: Error) => onMapError?.(error));
 
   const init = usePersistFn(async () => {
     await loadMapScript();
@@ -146,8 +161,11 @@ export function MapView({
   });
 
   useEffect(() => {
-    init();
-  }, [init]);
+    void init().catch(error => {
+      console.error("Failed to initialize Google Maps", error);
+      reportMapError(error instanceof Error ? error : new Error("Google Maps could not be initialized"));
+    });
+  }, [init, reportMapError]);
 
   return (
     <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
