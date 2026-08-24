@@ -30,3 +30,9 @@ The User Management page was reviewed at mobile and desktop widths. Account card
 ## Intelligence Map completion verification
 
 The independent /intelligence-map route renders the Google Maps canvas after local admin login, exposes nine layer toggles (Sites, 4G, 5G, Fiber, Complaints, Churn, Customers, Revenue Risk, Sales Opportunities), shows four site records with status filters, and supports selecting AMW-042 from the site list. The selected-site panel displayed availability, throughput, traffic, congestion, 4G/5G cells, fiber, customers, complaints, churn, revenue risk, and sales opportunities. The AI context input displayed the selected site ID and submits siteId with the question. The first cold screenshot caught transient GIS loading; a retry/fallback path was added, and authenticated browser verification showed the live map and marker overlays.
+
+## Data Governance verification
+
+The authenticated Data Management route was checked after adding the governance layer. The page displays dataset tabs for Network Sites, Network KPI, Complaints, and Customers; required and optional columns; ingestion methods; field definitions; validation rules; site_id/customer_id relationships; consuming modules under “Where is this data used?”; a Download template action; an Impact preview; and Data Quality indicators for Missing, Invalid, Duplicate, and Stale data.
+
+The source setup and import history remain available below the documentation surface. The import history endpoint correctly surfaced an actionable database-handshake error with a Retry control while the rest of the page remained usable. Desktop and mobile screenshots show the documentation surface in the dark Telecom NOC theme, with horizontally scrollable governance/dataset controls on mobile.

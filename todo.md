@@ -294,3 +294,14 @@
 
 - [x] Create a private GitHub repository and push the current Smart Analytics project
 - [x] Verify the remote repository contents and provide download/install/run instructions
+
+# Data Governance and Impact Mapping
+
+- [x] Add built-in dataset documentation for Network Sites, Network KPI, Complaints, and Customers
+- [x] Add required fields, supported ingestion methods, formats, validation rules, relationships, and consuming modules per dataset
+- [x] Add dataset navigation with Data Sources, Upload Data, Data Mapping, Data Validation, Data Documentation, Data Impact, Import History, and Data Quality views
+- [x] Add Where is this data used? impact view for every documented dataset
+- [x] Add Download Template actions for documented datasets
+- [x] Add upload validation, preview, import confirmation, and impact preview flow
+- [x] Add automatic site_id relationship documentation and cross-dataset impact summaries
+- [x] Add Vitest coverage and responsive desktop/mobile verification for Data Governance

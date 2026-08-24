@@ -1,5 +1,9 @@
 import {
   Activity,
+  BookOpen,
+  Download,
+  Link2,
+  UploadCloud,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -333,6 +337,17 @@ const modules: Record<
   },
 };
 
+const datasetDocs = [
+  { key: "network-sites", name: "Network Sites", icon: Network, description: "Geographic and operational inventory of telecom sites and their active technologies.", methods: "CSV / Excel / API / SFTP", required: ["site_id", "site_name", "latitude", "longitude", "region", "status", "technology"], optional: ["address", "vendor", "commissioned_at"], fields: "site_id identifies the site; latitude and longitude locate it; status and technology describe operational readiness.", rules: "Identifiers are required, coordinates must be valid, and status must be an accepted operational value.", relations: "site_id links cells, network KPIs, complaints, customers, fiber, sales opportunities, and revenue impact.", usedBy: ["Command Center", "Executive Overview", "Intelligence Map", "Network", "Priorities", "AI Assistant"], impact: "Updates map markers, network coverage, site health, priority scoring, and AI site context." },
+  { key: "network-kpi", name: "Network KPI", icon: Gauge, description: "Time-series cell performance used to measure availability, traffic, utilization, and throughput.", methods: "CSV / Excel / API / SFTP", required: ["site_id", "cell_id", "timestamp", "availability", "traffic", "prb_utilization", "throughput"], optional: ["technology", "coverage", "latency"], fields: "site_id and cell_id identify the network scope; timestamp preserves the observation time; KPI fields are numeric measurements.", rules: "Timestamps must be parseable, KPI values numeric, and identifiers must match known sites or cells when available.", relations: "site_id connects KPIs to sites; cell_id connects the record to worst-cell analysis, complaints correlation, and affected customers.", usedBy: ["Command Center", "Executive Overview", "Intelligence Map", "Network", "Customer Experience", "Complaints", "Priorities", "Alerts", "AI Assistant"], impact: "Recalculates network health, congestion, worst cells, CX risk, complaint correlation, priorities, and alerts." },
+  { key: "complaints", name: "Complaints", icon: AlertTriangle, description: "Customer complaint events correlated with geography, severity, status, and network context.", methods: "CSV / Excel / API / SFTP", required: ["complaint_id", "customer_id", "latitude", "longitude", "category", "severity", "status", "created_at", "site_id"], optional: ["description", "channel", "resolved_at"], fields: "complaint_id identifies the event; customer_id and site_id provide relationships; category, severity, and status drive operational triage.", rules: "IDs are required, created_at must be a valid date, severity/status must use accepted values, and coordinates must be valid when provided.", relations: "site_id links complaints to cells and sites; customer_id links complaint exposure to customer value and churn risk.", usedBy: ["Customer Experience", "Complaints", "Intelligence Map", "Priorities", "Alerts", "Revenue Risk", "AI Assistant"], impact: "Updates hotspots, complaint growth, CX risk factors, priority scoring, alert signals, and revenue-risk context." },
+  { key: "customers", name: "Customers", icon: Users, description: "Customer profile, segment, value, churn risk, and location data used for impact analysis.", methods: "CSV / Excel / API / SFTP", required: ["customer_id", "customer_type", "segment", "latitude", "longitude", "customer_value", "churn_risk"], optional: ["site_id", "industry", "contract_end"], fields: "customer_id identifies the customer; segment and customer_type classify the account; customer_value and churn_risk support prioritization.", rules: "Identifiers are required, value/risk fields must be numeric, and coordinates must be valid for geospatial analysis.", relations: "customer_id links complaints and sales; site_id or proximity links customers to network exposure, fiber readiness, and revenue risk.", usedBy: ["Customers", "Customer Experience", "Intelligence Map", "Business & Revenue", "Priorities", "AI Assistant"], impact: "Updates customer density, high-value clusters, churn exposure, CX impact, and revenue opportunity calculations." },
+] as const;
+
+function downloadDatasetTemplate(dataset: typeof datasetDocs[number]) { const csv = `${dataset.required.join(",")}\\n${dataset.required.map(() => "").join(",")}\\n`; const blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${dataset.key}-template.csv`; anchor.click(); URL.revokeObjectURL(url); }
+
+function DatasetDocumentation() { const [selected, setSelected] = useState<string>(datasetDocs[0].key); const dataset = datasetDocs.find(item => item.key === selected) ?? datasetDocs[0]; return <section className="data-governance"><div className="module-subhead"><b><BookOpen size={14}/> Data Documentation</b><span>Self-documenting source contracts</span></div><div className="governance-nav"><span className="active">Data Sources</span><span>Upload Data</span><span>Data Mapping</span><span>Data Validation</span><span className="active">Data Documentation</span><span>Data Impact</span><span>Import History</span><span>Data Quality</span></div><div className="dataset-tabs">{datasetDocs.map(item => <button type="button" className={item.key === selected ? "active" : ""} onClick={() => setSelected(item.key)} key={item.key}><item.icon size={14}/>{item.name}</button>)}</div><div className="dataset-doc-grid"><div><div className="dataset-title"><dataset.icon size={20}/><span><b>{dataset.name}</b><small>{dataset.description}</small></span></div><div className="doc-section"><b>How to provide it</b><p>{dataset.methods}</p></div><div className="doc-section"><b>Required columns</b><div className="field-chips">{dataset.required.map(field => <code key={field}>{field}</code>)}</div></div><div className="doc-section"><b>Optional columns</b><div className="field-chips muted">{dataset.optional.map(field => <code key={field}>{field}</code>)}</div></div><button type="button" className="action-chip" onClick={() => downloadDatasetTemplate(dataset)}><Download size={13}/> Download template</button></div><div><div className="doc-section"><b>Field definitions</b><p>{dataset.fields}</p></div><div className="doc-section"><b>Validation rules</b><p>{dataset.rules}</p></div><div className="doc-section"><b>Relationships</b><p><Link2 size={13}/> {dataset.relations}</p></div><div className="doc-section"><b>Where is this data used?</b><div className="used-modules">{dataset.usedBy.map(module => <span key={module}><CheckCircle2 size={12}/>{module}</span>)}</div></div></div></div><div className="impact-preview"><UploadCloud size={16}/><div><b>Impact preview</b><span>{dataset.impact}</span></div><strong>Ready for validate → preview → import</strong></div><div className="data-quality-row"><div><b>Missing</b><strong>Awaiting validation</strong></div><div><b>Invalid</b><strong>Awaiting validation</strong></div><div><b>Duplicate</b><strong>Awaiting validation</strong></div><div><b>Stale data</b><strong>Checked on import</strong></div></div></section>; }
+
 function DataSourceConsole() {
   const [method, setMethod] = useState<"manual" | "api" | "sftp" | "database">(
     "manual"
@@ -402,6 +417,7 @@ function DataSourceConsole() {
   };
   return (
     <div className="standalone-data-console">
+      <DatasetDocumentation />
       <div className="module-subhead">
         <b>Connected sources</b>
         <span className={sourcesLoading ? "loading-inline" : ""}>
@@ -789,3 +805,4 @@ export const DataManagementPage = () => <ModulePage slug="data-management" />;
 export const UserManagementPage = () => <ModulePage slug="user-management" />;
 export const SystemSettingsPage = () => <ModulePage slug="system-settings" />;
 export const AuditLogsPage = () => <ModulePage slug="audit-logs" />;
+export { datasetDocs };
