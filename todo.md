@@ -204,3 +204,19 @@
 - [x] Add complaint correlation, bad-experience areas, filters, and selected-area detail analysis
 - [x] Add Vitest coverage for CX scoring, ranking, correlation, and tRPC response shape
 - [x] Verify Customer Experience on desktop/mobile and save a checkpoint
+
+# Customer Intelligence Operations
+
+- [x] Replace the Customers placeholder with a dedicated customer intelligence dashboard
+- [x] Add protected customer segment and density data with total, enterprise, SME, high-value, and high-churn metrics
+- [x] Add customer filters for segment, churn risk, region, and proximity to congested cells
+- [x] Add a map view showing high-value customers within 1 km of congested cells
+- [x] Add Vitest coverage for customer aggregation, filtering, proximity, and tRPC response shape
+- [x] Verify Customers on desktop/mobile and save a checkpoint
+
+# Customer Geospatial Detail Closure
+
+- [x] Add customer-level geospatial points or privacy-safe clusters to customer operations results
+- [x] Make the 1 km high-value/congested filter plot matching customer points or clusters, not only area markers
+- [x] Re-verify Customers desktop/mobile after customer-level map detail and save a new checkpoint
+- [x] Save a new checkpoint after the verified Customers geospatial-detail implementation

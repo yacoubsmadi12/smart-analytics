@@ -1,0 +1,80 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Building2, CircleAlert, Filter, Loader2, MapPin, Navigation, Search, ShieldCheck, TrendingUp, Users, Wifi } from "lucide-react";
+import { useLocation } from "wouter";
+import { MapView } from "@/components/Map";
+import { trpc } from "@/lib/trpc";
+
+type Segment = "all" | "consumer" | "enterprise" | "sme" | "high_value" | "high_churn";
+type Cluster = { id: string; areaId: string; latitude: number; longitude: number; customers: number; segment: "high_value" | "high_churn"; nearCongestedCell: boolean; radiusMeters: number };
+type Area = { id: string; name: string; region: string; customers: number; enterpriseCustomers: number; highValueCustomers: number; highChurnCustomers: number; churnRisk: number; density: number; latitude: number; longitude: number; congestedCells: number; nearestCongestedCellKm: number | null; complaints: number; consumerCustomers: number; smeCustomers: number; customerImpact: number; segmentMix: { consumer: number; enterprise: number; sme: number; highValue: number; highChurn: number }; nearCongestedCell: boolean; customerClusters: Cluster[] };
+type Operations = { source: "persisted" | "operational-preview"; updatedAt: string; summary: { totalCustomers: number; customerDensity: number; enterpriseCustomers: number; smeCustomers: number; highValueCustomers: number; highChurnCustomers: number; areas: number; nearCongestedHighValue: number }; areas: Area[] };
+
+function number(value: number) { return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value); }
+function compact(value: number) { return value >= 1000000 ? `${(value / 1000000).toFixed(2)}M` : value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K` : number(value); }
+function dateTime(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }); }
+function mapPosition(area: { latitude: number; longitude: number }) { return { left: `${Math.max(8, Math.min(92, ((area.longitude - 34.85) / 1.45) * 100))}%`, top: `${Math.max(10, Math.min(90, ((33.2 - area.latitude) / 3.9) * 100))}%` }; }
+
+export default function CustomersPage() {
+  const [, navigate] = useLocation();
+  const permissions = trpc.auth.permissions.useQuery();
+  const query = trpc.customers.operations.useQuery(undefined, { enabled: Boolean(permissions.data?.grants?.includes("customers.view")) });
+  const data = query.data as Operations | undefined;
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const overlaysRef = useRef<Array<{ setMap: (map: google.maps.Map | null) => void }>>([]);
+  const [segment, setSegment] = useState<Segment>("all");
+  const [region, setRegion] = useState("all");
+  const [nearCongested, setNearCongested] = useState(false);
+  const [highChurnOnly, setHighChurnOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const regions = useMemo(() => Array.from(new Set((data?.areas ?? []).map(area => area.region))), [data?.areas]);
+  const areas = useMemo(() => { const q = search.trim().toLowerCase(); return (data?.areas ?? []).filter(area => { const segmentMatch = segment === "all" || (segment === "high_value" ? area.highValueCustomers > 0 : segment === "high_churn" ? area.highChurnCustomers > 0 : area.segmentMix[segment] > 0); return segmentMatch && (region === "all" || area.region === region) && (!nearCongested || (area.highValueCustomers > 0 && area.nearCongestedCell)) && (!highChurnOnly || area.highChurnCustomers > 0) && (!q || `${area.name} ${area.region}`.toLowerCase().includes(q)); }); }, [data?.areas, segment, region, nearCongested, highChurnOnly, search]);
+  const selected = areas.find(area => area.id === selectedId) ?? areas[0] ?? data?.areas[0];
+  const visibleClusters = useMemo(() => nearCongested ? areas.flatMap(area => area.customerClusters.filter(cluster => cluster.segment === "high_value" && cluster.nearCongestedCell)) : [], [areas, nearCongested]);
+
+  useEffect(() => {
+    if (!mapRef.current || !window.google?.maps?.marker || !areas.length) return;
+    overlaysRef.current.forEach(item => item.setMap(null));
+    const overlays: Array<{ setMap: (map: google.maps.Map | null) => void }> = [];
+    areas.forEach(area => {
+      const pin = document.createElement("div");
+      pin.className = `customer-map-pin ${area.nearCongestedCell ? "near-congested" : ""} ${area.highValueCustomers > 0 ? "high-value" : ""}`;
+      pin.innerHTML = `<span>${area.nearCongestedCell ? "!" : "•"}</span>`;
+      pin.title = `${area.name}: ${number(area.customers)} customers`;
+      const marker = new google.maps.marker.AdvancedMarkerElement({ map: mapRef.current, position: { lat: area.latitude, lng: area.longitude }, title: area.name, content: pin });
+      marker.addListener("click", () => setSelectedId(area.id));
+      overlays.push(marker as unknown as { setMap: (map: google.maps.Map | null) => void });
+      if (nearCongested && area.nearCongestedCell) {
+        const circle = new google.maps.Circle({ map: mapRef.current, center: { lat: area.latitude, lng: area.longitude }, radius: 1000, fillColor: "#ff7184", fillOpacity: 0.08, strokeColor: "#ff7184", strokeOpacity: 0.45, strokeWeight: 1 });
+        overlays.push(circle);
+      }
+    });
+    if (nearCongested) areas.forEach(area => area.customerClusters.filter(cluster => cluster.segment === "high_value" && cluster.nearCongestedCell).forEach(cluster => {
+      const clusterPin = document.createElement("div");
+      clusterPin.className = "customer-map-cluster-pin";
+      clusterPin.textContent = number(cluster.customers);
+      clusterPin.title = `${number(cluster.customers)} high-value customers within 1 km of congested cells`;
+      const clusterMarker = new google.maps.marker.AdvancedMarkerElement({ map: mapRef.current, position: { lat: cluster.latitude, lng: cluster.longitude }, title: clusterPin.title, content: clusterPin });
+      clusterMarker.addListener("click", () => setSelectedId(cluster.areaId));
+      overlays.push(clusterMarker as unknown as { setMap: (map: google.maps.Map | null) => void });
+    }));
+    overlaysRef.current = overlays;
+    return () => { overlays.forEach(item => item.setMap(null)); };
+  }, [areas, nearCongested, mapReady]);
+
+  if (permissions.isLoading) return <div className="auth-loading"><Loader2 size={18} className="spin" /> Loading protected customer workspace…</div>;
+  if (!permissions.data?.grants?.includes("customers.view")) return <main className="module-access-denied"><ShieldCheck size={28} /><h1>Access restricted</h1><p>Your role does not have permission to view customer intelligence.</p><button onClick={() => navigate("/")}>Return to command center</button></main>;
+  if (query.isLoading) return <div className="auth-loading"><Loader2 size={18} className="spin" /> Loading customer intelligence…</div>;
+  if (query.isError || !data) return <main className="module-access-denied"><CircleAlert size={28} /><h1>Customer data unavailable</h1><p>We could not load the customer dataset. Check the connected source and retry.</p><button onClick={() => query.refetch()}>Retry customer data</button></main>;
+
+  return <main className="standalone-module customers-operations-page">
+    <header className="standalone-top"><button onClick={() => navigate("/")}>← Command Center</button><span className="section-kicker">CUSTOMER INTELLIGENCE</span><span className="module-role"><ShieldCheck size={14} /> Role-scoped view</span></header>
+    <section className="standalone-hero customers-page-hero"><div><span className="section-kicker">CUSTOMERS</span><h1>Turn customer density into retention action.</h1><p>Find valuable customers, understand churn exposure, and locate the service areas where network pressure can become a customer risk.</p></div><div className="standalone-icon"><Users size={28} /></div></section>
+    <section className="customers-source-strip"><div><span className="network-live-dot" /><b>{data.source === "persisted" ? "Persisted customer intelligence" : "Operational preview dataset"}</b><span>Updated {dateTime(data.updatedAt)}</span></div><span>{data.summary.areas} areas monitored</span></section>
+    <section className="customers-summary-grid"><div className="customers-total-card"><span>Total Customers</span><strong>{compact(data.summary.totalCustomers)}</strong><small><Users size={14} /> active customer base</small></div><div className="customers-metric-card"><span>Customer Density</span><strong>{number(data.summary.customerDensity)}<small>/km²</small></strong><small><MapPin size={14} /> average monitored density</small></div><div className="customers-metric-card"><span>Enterprise</span><strong>{compact(data.summary.enterpriseCustomers)}</strong><small><Building2 size={14} /> protected accounts</small></div><div className="customers-metric-card"><span>SME</span><strong>{compact(data.summary.smeCustomers)}</strong><small><TrendingUp size={14} /> growth segment</small></div><div className="customers-metric-card"><span>High Value</span><strong>{compact(data.summary.highValueCustomers)}</strong><small className="priority"><ArrowUpRight size={14} /> retention priority</small></div><div className="customers-metric-card"><span>High Churn</span><strong>{compact(data.summary.highChurnCustomers)}</strong><small className="risk"><CircleAlert size={14} /> monitor now</small></div></section>
+    <section className="customers-filter-panel"><div className="customers-filter-title"><Filter size={17} /><div><span className="section-kicker">AUDIENCE FILTERS</span><h2>Find the customer segment that needs action</h2></div><span className="customers-result-count">{areas.length} areas match</span></div><div className="customers-filters"><label className="customers-search"><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search area or region" /></label><select value={segment} onChange={event => setSegment(event.target.value as Segment)}><option value="all">All segments</option><option value="consumer">Consumer</option><option value="enterprise">Enterprise</option><option value="sme">SME</option><option value="high_value">High value</option><option value="high_churn">High churn</option></select><select value={region} onChange={event => setRegion(event.target.value)}><option value="all">All regions</option>{regions.map(item => <option value={item} key={item}>{item}</option>)}</select><label className={`customers-toggle ${nearCongested ? "active" : ""}`}><input type="checkbox" checked={nearCongested} onChange={event => setNearCongested(event.target.checked)} /><span />High value within 1 km of congested cells</label><label className={`customers-toggle ${highChurnOnly ? "active" : ""}`}><input type="checkbox" checked={highChurnOnly} onChange={event => setHighChurnOnly(event.target.checked)} /><span />High churn only</label></div></section>
+    <section className="customers-main-grid"><div className="customers-map-panel"><div className="customers-panel-head"><div><span className="section-kicker">GEOSPATIAL CUSTOMER INTELLIGENCE</span><h2>Customer density and service exposure</h2><p>{nearCongested ? "Showing high-value customers within a 1 km radius of congested cells." : "Select a segment filter or enable the proximity view to focus the map."}</p></div><span className="customers-map-legend"><i className="customer-map-pin-dot high" /> High value <i className="customer-map-pin-dot risk" /> Congested exposure</span></div><div className="customers-map-wrap"><MapView initialCenter={{ lat: 31.95, lng: 35.91 }} initialZoom={7} className="customers-map" onMapReady={map => { mapRef.current = map; setMapReady(true); }} onMapError={() => undefined} /><div className="customers-coordinate-overlay"><div className="customers-map-grid-lines" /><span className="customers-map-label north">NORTH</span><span className="customers-map-label west">WEST</span>{areas.map(area => <button key={area.id} className={`customers-overlay-marker ${area.nearCongestedCell ? "near-congested" : ""} ${selected?.id === area.id ? "selected" : ""}`} style={mapPosition(area)} onClick={() => setSelectedId(area.id)}><span className="customers-overlay-dot">{area.nearCongestedCell ? "!" : "•"}</span><span>{area.name}</span></button>)}{visibleClusters.map(cluster => <button key={cluster.id} className="customers-overlay-cluster" style={mapPosition(cluster)} onClick={() => setSelectedId(cluster.areaId)}><b>{compact(cluster.customers)}</b><small>high value</small></button>)}</div>{nearCongested && <div className="customers-map-callout"><Navigation size={15} /><span>1 km exposure radius active</span></div>}</div></div><aside className="customers-segment-panel"><div className="customers-panel-head"><div><span className="section-kicker">CUSTOMER SEGMENTS</span><h2>Area portfolio</h2><p>Click an area to inspect its customer mix.</p></div></div><div className="customers-area-list">{areas.map(area => <button key={area.id} className={`customers-area-row ${selected?.id === area.id ? "selected" : ""}`} onClick={() => setSelectedId(area.id)}><span className="customers-area-marker"><MapPin size={14} /></span><span><b>{area.name}</b><small>{compact(area.customers)} customers · {number(area.density)}/km²</small></span><strong className={area.highChurnCustomers > 0 ? "risk" : ""}>{compact(area.highValueCustomers)}<small>high value</small></strong></button>)}{!areas.length && <div className="customers-empty"><Search size={20} /><b>No areas match the filters</b><span>Reset a filter to widen the portfolio.</span></div>}</div></aside></section>
+    <section className="customers-detail-panel">{selected ? <><div className="customers-detail-heading"><div><span className="section-kicker">SELECTED CUSTOMER AREA</span><h2>{selected.name}</h2><p>{selected.id} · {compact(selected.customers)} total customers · {selected.nearCongestedCell ? "Within 1 km of congested cells" : "No congested-cell proximity detected"}</p></div><span className={`customers-risk-pill ${selected.highChurnCustomers > selected.customers * .05 ? "critical" : "watch"}`}>{selected.churnRisk.toFixed(1)}% churn risk</span></div><div className="customers-detail-metrics"><div><Users size={16} /><span>Total customers</span><b>{number(selected.customers)}</b></div><div><Building2 size={16} /><span>Enterprise</span><b>{number(selected.enterpriseCustomers)}</b></div><div><TrendingUp size={16} /><span>SME</span><b>{number(selected.smeCustomers)}</b></div><div><ArrowUpRight size={16} /><span>High value</span><b>{number(selected.highValueCustomers)}</b></div><div><CircleAlert size={16} /><span>High churn</span><b>{number(selected.highChurnCustomers)}</b></div><div><Wifi size={16} /><span>Congested cells</span><b>{selected.congestedCells}</b></div></div><div className="customers-detail-bar"><div><span>Segment composition</span><i><b style={{ width: `${Math.min(100, selected.enterpriseCustomers / Math.max(1, selected.customers) * 100)}%` }} /><b className="sme" style={{ width: `${Math.min(100, selected.smeCustomers / Math.max(1, selected.customers) * 100)}%` }} /><b className="high" style={{ width: `${Math.min(100, selected.highValueCustomers / Math.max(1, selected.customers) * 100)}%` }} /></i></div><div><span>Customer impact exposure</span><strong>{number(selected.customerImpact)} customers</strong></div><div><span>Open complaints</span><strong>{number(selected.complaints)}</strong></div><div><span>Nearest congested cell</span><strong>{selected.nearestCongestedCellKm === null ? "Not detected" : `${selected.nearestCongestedCellKm.toFixed(1)} km`}</strong></div></div></> : <div className="customers-empty"><Users size={24} /><b>Select an area</b><span>Choose a filtered area to inspect the customer portfolio.</span></div>}</section>
+  </main>;
+}

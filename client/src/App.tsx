@@ -10,9 +10,10 @@ import ModulePage from "./pages/ModulePage";
 import IntelligenceMapPage from "./pages/IntelligenceMapPage";
 import NetworkPage from "./pages/NetworkPage";
 import CustomerExperiencePage from "./pages/CustomerExperiencePage";
+import CustomersPage from "./pages/CustomersPage";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-function ModuleRoute() { const [, params] = useRoute("/:module"); const slug = params?.module || "network"; if (slug === "intelligence-map") return <IntelligenceMapPage />; if (slug === "network") return <NetworkPage />; if (slug === "customer-experience") return <CustomerExperiencePage />; return <ModulePage slug={slug}/>; }
+function ModuleRoute() { const [, params] = useRoute("/:module"); const slug = params?.module || "network"; if (slug === "intelligence-map") return <IntelligenceMapPage />; if (slug === "network") return <NetworkPage />; if (slug === "customer-experience") return <CustomerExperiencePage />; if (slug === "customers") return <CustomersPage />; return <ModulePage slug={slug}/>; }
 
 function Router() {
   const [isLoginRoute] = useRoute("/login");

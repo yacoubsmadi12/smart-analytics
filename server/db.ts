@@ -20,6 +20,7 @@ import {
 import { ENV } from "./_core/env";
 import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
 import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
+import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -144,6 +145,35 @@ export async function getPersistedCustomerExperience() {
     return assembleCustomerExperience("persisted", inputs);
   } catch (error) {
     console.warn("[Database] Customer experience query unavailable:", error);
+    return null;
+  }
+}
+
+export async function getPersistedCustomerOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [customerRows, complaintRows, siteRows, kpiRows] = await Promise.all([
+      db.select({ region: customers.region, customers: sql<number>`count(*)`, enterpriseCustomers: sql<number>`sum(case when ${customers.segment} = 'enterprise' then 1 else 0 end)`, highValueCustomers: sql<number>`sum(case when ${customers.segment} = 'high_value' then 1 else 0 end)`, highChurnCustomers: sql<number>`sum(case when ${customers.churnRisk} >= 7 then 1 else 0 end)`, churnRisk: sql<string>`avg(${customers.churnRisk})` }).from(customers).groupBy(customers.region),
+      db.select({ region: customers.region, complaints: sql<number>`count(*)` }).from(complaints).leftJoin(customers, eq(complaints.customerId, customers.id)).where(sql`${complaints.status} <> 'resolved'`).groupBy(customers.region),
+      db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
+      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
+    ]);
+    if (!customerRows.length && !siteRows.length) return null;
+    const numberValue = (value: unknown, fallback = 0) => Number(value ?? fallback);
+    const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
+    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, numberValue(row.congestion)]));
+    const regions = Array.from(new Set([...customerRows.map(row => row.region ?? "Unmapped"), ...siteRows.map(row => row.region ?? row.name ?? "Unmapped")]));
+    const inputs: CustomerAreaInput[] = regions.map((region, index) => {
+      const customerRow = customerRows.find(row => (row.region ?? "Unmapped") === region);
+      const regionSite = siteRows.find(site => (site.region ?? site.name ?? "Unmapped") === region);
+      const regionSites = siteRows.filter(site => (site.region ?? site.name ?? "Unmapped") === region);
+      const congestedCells = regionSites.reduce((sum, site) => sum + (kpiBySite.get(site.id) ?? 0 >= 70 ? 1 : 0), 0);
+      return { id: regionSite?.siteCode ?? `CUST-${String(index + 1).padStart(3, "0")}`, name: regionSite?.name ?? region, region, customers: numberValue(customerRow?.customers), enterpriseCustomers: numberValue(customerRow?.enterpriseCustomers), highValueCustomers: numberValue(customerRow?.highValueCustomers), highChurnCustomers: numberValue(customerRow?.highChurnCustomers), churnRisk: numberValue(customerRow?.churnRisk), density: Math.round(numberValue(customerRow?.customers) / Math.max(1, regionSites.length * 10)), latitude: Number(regionSite?.latitude ?? 31.95), longitude: Number(regionSite?.longitude ?? 35.91), congestedCells, nearestCongestedCellKm: congestedCells > 0 ? 0.8 : null, complaints: complaintByRegion.get(region) ?? 0, source: "persisted" };
+    });
+    return assembleCustomerOperations("persisted", inputs);
+  } catch (error) {
+    console.warn("[Database] Customer operations query unavailable:", error);
     return null;
   }
 }
