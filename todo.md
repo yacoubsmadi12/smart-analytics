@@ -195,3 +195,12 @@
 - [x] Fix the NetworkCell type import syntax in the persisted network helper
 - [x] Fix quoted numeric technology keys in the Network analytics test
 - [x] Add Vitest coverage for network.operations covering persisted return and preview fallback boundary
+
+# Customer Experience Operations
+
+- [x] Replace the Customer Experience placeholder with a dedicated CX control room
+- [x] Add protected customer-experience operations data with CX risk, churn risk, complaints, customer impact, and area signals
+- [x] Add explainable CX risk factors for locations such as Amman West
+- [x] Add complaint correlation, bad-experience areas, filters, and selected-area detail analysis
+- [x] Add Vitest coverage for CX scoring, ranking, correlation, and tRPC response shape
+- [x] Verify Customer Experience on desktop/mobile and save a checkpoint

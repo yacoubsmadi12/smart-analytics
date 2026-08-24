@@ -14,6 +14,7 @@ import {
   ensureLocalAdmin,
   getPersistedDashboardSummary,
   getPersistedNetworkOperations,
+  getPersistedCustomerExperience,
   getUserByUsername,
   listAiConversations,
   listDataSources,
@@ -30,6 +31,7 @@ import { saveImportMapping, updateDataSourceSync } from "./db";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 import { createPreviewNetworkOperations } from "./network-analytics";
+import { createPreviewCustomerExperience } from "./cx-analytics";
 
 const permissionsByRole: Record<string, string[]> = {
   admin: [
@@ -298,6 +300,11 @@ export const appRouter = router({
   network: router({
     operations: protectedProcedure.query(async () =>
       (await getPersistedNetworkOperations()) ?? createPreviewNetworkOperations(mapSites)
+    ),
+  }),
+  customerExperience: router({
+    operations: protectedProcedure.query(async () =>
+      (await getPersistedCustomerExperience()) ?? createPreviewCustomerExperience(mapSites)
     ),
   }),
   ai: router({

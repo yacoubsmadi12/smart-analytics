@@ -19,6 +19,7 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
+import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -115,6 +116,34 @@ export async function getPersistedNetworkOperations() {
     return result;
   } catch (error) {
     console.warn("[Database] Network operations query unavailable:", error);
+    return null;
+  }
+}
+
+export async function getPersistedCustomerExperience() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [customerRows, complaintRows, kpiRows, fiberRows] = await Promise.all([
+      db.select({ region: customers.region, customers: sql<number>`count(*)`, churnRisk: sql<string>`avg(${customers.churnRisk})` }).from(customers).groupBy(customers.region),
+      db.select({ region: customers.region, complaints: sql<number>`count(*)` }).from(complaints).leftJoin(customers, eq(complaints.customerId, customers.id)).where(sql`${complaints.status} <> 'resolved'`).groupBy(customers.region),
+      db.select({ region: sites.region, availability: sql<string>`avg(${networkKpis.availability})`, congestion: sql<string>`avg(${networkKpis.congestion})`, throughput: sql<string>`avg(${networkKpis.throughputMbps})` }).from(networkKpis).leftJoin(sites, eq(networkKpis.siteId, sites.id)).groupBy(sites.region),
+      db.select({ region: fiberInfrastructure.region, fiber: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
+    ]);
+    if (!customerRows.length && !complaintRows.length && !kpiRows.length) return null;
+    const numberValue = (value: unknown, fallback = 0) => Number(value ?? fallback);
+    const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
+    const kpiByRegion = new Map(kpiRows.map(row => [row.region ?? "Unmapped", { availability: numberValue(row.availability, 98), congestion: numberValue(row.congestion, 35), throughput: numberValue(row.throughput, 45) }]));
+    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped", numberValue(row.fiber, 80)]));
+    const regions = Array.from(new Set([...customerRows.map(row => row.region ?? "Unmapped"), ...complaintRows.map(row => row.region ?? "Unmapped"), ...kpiRows.map(row => row.region ?? "Unmapped")]));
+    const inputs: CustomerExperienceAreaInput[] = regions.map((region, index) => {
+      const customerRow = customerRows.find(row => (row.region ?? "Unmapped") === region);
+      const kpi = kpiByRegion.get(region) ?? { availability: 98, congestion: 35, throughput: 45 };
+      return { id: `CX-${String(index + 1).padStart(3, "0")}`, name: region, region, customers: numberValue(customerRow?.customers), complaints: complaintByRegion.get(region) ?? 0, churnRisk: numberValue(customerRow?.churnRisk), availability: kpi.availability, congestion: kpi.congestion, throughput: kpi.throughput, fiber: fiberByRegion.get(region) ?? null, source: "persisted" };
+    });
+    return assembleCustomerExperience("persisted", inputs);
+  } catch (error) {
+    console.warn("[Database] Customer experience query unavailable:", error);
     return null;
   }
 }
