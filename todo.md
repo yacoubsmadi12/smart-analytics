@@ -241,3 +241,12 @@
 - [x] Add recommended infrastructure actions such as Fiber Migration with selected-site detail
 - [x] Add Vitest coverage for infrastructure aggregation, opportunity scoring, and tRPC response shape
 - [x] Verify Infrastructure / Fiber on desktop/mobile and save a checkpoint
+
+# Sales Intelligence Operations
+
+- [x] Replace the Sales placeholder with a dedicated sales intelligence dashboard
+- [x] Add protected opportunity, pipeline, value, enterprise, stage, and customer-location data
+- [x] Add network readiness and fiber readiness signals for each sales opportunity
+- [x] Add high-value opportunity alerts when nearby sites have network issues
+- [x] Add Vitest coverage for sales aggregation, readiness scoring, alerts, and tRPC response shape
+- [x] Verify Sales on desktop/mobile and save a checkpoint

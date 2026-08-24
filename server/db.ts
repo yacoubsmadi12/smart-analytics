@@ -21,6 +21,7 @@ import { ENV } from "./_core/env";
 import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
 import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
 import { assembleInfrastructureOperations } from "./infrastructure-analytics";
+import { assembleSalesOperations } from "./sales-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
 
@@ -607,6 +608,37 @@ export async function getPersistedInfrastructureOperations() {
     return assembleInfrastructureOperations("persisted", records);
   } catch (error) {
     console.warn("[Database] Infrastructure operations query unavailable:", error);
+    return null;
+  }
+}
+
+
+export async function getPersistedSalesOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [opportunityRows, customerRows, siteRows, kpiRows, fiberRows] = await Promise.all([
+      db.select().from(salesOpportunities),
+      db.select({ id: customers.id, externalRef: customers.externalRef, segment: customers.segment }).from(customers),
+      db.select({ id: sites.id, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
+      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
+      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
+    ]);
+    if (!opportunityRows.length) return null;
+    const numberValue = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
+    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, numberValue(row.congestion, 35)]));
+    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped region", numberValue(row.availability, 80)]));
+    const inputs = opportunityRows.map((opportunity, index) => {
+      const customer = customerRows.find(item => item.id === opportunity.customerId);
+      const region = opportunity.region ?? "Unmapped region";
+      const site = siteRows.find(item => (item.region ?? item.name) === region) ?? siteRows[index % Math.max(1, siteRows.length)];
+      const congestion = site ? numberValue(kpiBySite.get(site.id), 35) : 35;
+      const fiberReadiness = numberValue(fiberByRegion.get(region), 80);
+      return { id: String(opportunity.id), accountName: customer?.externalRef ?? `Account ${opportunity.id}`, region, latitude: numberValue(site?.latitude, 31.95), longitude: numberValue(site?.longitude, 35.91), stage: opportunity.stage ?? "Qualified", value: numberValue(opportunity.value), probability: numberValue(opportunity.probability), enterprise: customer?.segment === "enterprise", customerSegment: customer?.segment ?? "high_value", networkReadiness: Math.max(0, 100 - congestion), fiberReadiness, siteName: site?.name ?? region } as const;
+    });
+    return assembleSalesOperations("persisted", inputs);
+  } catch (error) {
+    console.warn("[Database] Sales operations query unavailable:", error);
     return null;
   }
 }
