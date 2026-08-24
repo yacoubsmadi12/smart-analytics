@@ -5,6 +5,10 @@ import {
   aiConversations,
   complaints,
   customers,
+  cells,
+  sites,
+  fiberInfrastructure,
+  salesOpportunities,
   dataSources,
   networkKpis,
   revenues,
@@ -14,6 +18,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -44,6 +49,74 @@ export async function getPersistedDashboardSummary() {
   const numberValue = (value: unknown) => Number(value || 0);
   const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0 };
   return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : null;
+}
+
+export async function getPersistedNetworkOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [cellRows, kpiRows, complaintRows, customerRows, fiberRows] = await Promise.all([
+      db.select({ cell: cells, site: sites }).from(cells).leftJoin(sites, eq(cells.siteId, sites.id)),
+      db.select().from(networkKpis).orderBy(desc(networkKpis.recordedAt)).limit(120),
+      db.select({ siteId: complaints.siteId, total: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`).groupBy(complaints.siteId),
+      db.select({ region: customers.region, total: sql<number>`count(*)` }).from(customers).groupBy(customers.region),
+      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
+    ]);
+    if (!cellRows.length) return null;
+    const numberValue = (value: unknown) => Number(value || 0);
+    const latestKpi = new Map<number, typeof kpiRows[number]>();
+    kpiRows.forEach(row => { if (!latestKpi.has(row.siteId)) latestKpi.set(row.siteId, row); });
+    const complaintBySite = new Map<number, number>();
+    complaintRows.forEach(row => { if (row.siteId !== null) complaintBySite.set(row.siteId, numberValue(row.total)); });
+    const customersByRegion = new Map<string, number>();
+    customerRows.forEach(row => { if (row.region) customersByRegion.set(row.region, numberValue(row.total)); });
+    const fiberByRegion = new Map<string, number>();
+    fiberRows.forEach(row => { if (row.region && row.availability !== null) fiberByRegion.set(row.region, numberValue(row.availability)); });
+    const cellsBySite = new Map<number, number>();
+    cellRows.forEach(row => cellsBySite.set(row.cell.siteId, (cellsBySite.get(row.cell.siteId) ?? 0) + 1));
+    const persistedCells: NetworkCell[] = cellRows.map(({ cell, site }, index) => {
+      const kpi = latestKpi.get(cell.siteId);
+      const availability = numberValue(cell.availability ?? kpi?.availability);
+      const congestion = numberValue(cell.congestion ?? kpi?.congestion);
+      const throughput = numberValue(cell.throughput ?? kpi?.throughputMbps);
+      const region = site?.region ?? site?.name ?? "Unmapped region";
+      const siteKey = site?.siteCode ?? `SITE-${cell.siteId}`;
+      const siteName = site?.name ?? siteKey;
+      const siteCustomers = customersByRegion.get(region) ?? 0;
+      const siteComplaints = complaintBySite.get(cell.siteId) ?? 0;
+      return {
+        cellCode: cell.cellCode,
+        siteId: siteKey,
+        siteName,
+        technology: cell.technology,
+        availability,
+        traffic: Number((numberValue(kpi?.trafficTb) / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)).toFixed(3)),
+        congestion,
+        throughput,
+        coverage: availability,
+        impactedCustomers: Math.round(siteCustomers / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)),
+        complaints: Math.round(siteComplaints / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)),
+        fiber: fiberByRegion.get(region) ?? null,
+        reason: networkReason(availability, congestion, throughput),
+        status: networkStatus(availability, congestion),
+      } satisfies NetworkCell;
+    });
+    const latestTimestamp = kpiRows[0]?.recordedAt?.toISOString() ?? new Date().toISOString();
+    const result = assembleNetworkOperations("persisted", persistedCells, latestTimestamp);
+    const trendRows = [...kpiRows].reverse().slice(-5);
+    if (trendRows.length) {
+      result.trends = trendRows.map(row => ({
+        label: new Date(row.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        availability: numberValue(row.availability),
+        congestion: numberValue(row.congestion),
+        throughput: numberValue(row.throughputMbps),
+      }));
+    }
+    return result;
+  } catch (error) {
+    console.warn("[Database] Network operations query unavailable:", error);
+    return null;
+  }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {

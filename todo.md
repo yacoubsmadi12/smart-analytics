@@ -182,4 +182,16 @@
 - [x] Verify Intelligence Map on desktop/mobile and save a checkpoint
 - [x] Prevent duplicate Google Maps script loading when navigating between map surfaces
 - [x] Perform authenticated mobile verification of /intelligence-map after local login, including layer controls and selected-site details
-- [ ] Save a new checkpoint after the verified Intelligence Map implementation
+- [x] Save a new checkpoint after the verified Intelligence Map implementation
+
+# Network Operations Completion
+
+- [x] Replace the standalone Network placeholder with a real network operations dashboard
+- [x] Add persisted-source-aware cells, sites, technology, availability, traffic, congestion, throughput, and coverage metrics
+- [x] Add a Top 10 Worst Cells view with reason, impacted customers, complaints, and fiber context
+- [x] Add KPI trends and technology filters for 2G, 3G, 4G, and 5G
+- [x] Add tests for worst-cell ranking, impact analysis, and live network summary data
+- [x] Verify Network on desktop/mobile and save a checkpoint
+- [x] Fix the NetworkCell type import syntax in the persisted network helper
+- [x] Fix quoted numeric technology keys in the Network analytics test
+- [x] Add Vitest coverage for network.operations covering persisted return and preview fallback boundary
