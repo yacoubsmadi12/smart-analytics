@@ -5,6 +5,7 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   username: varchar("username", { length: 80 }).unique(),
   passwordHash: varchar("passwordHash", { length: 255 }),
+  temporaryPasswordExpiresAt: timestamp("temporaryPasswordExpiresAt"),
   name: text("name"), email: varchar("email", { length: 320 }), loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   isActive: boolean("isActive").default(true).notNull(),

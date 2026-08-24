@@ -26,7 +26,7 @@ describe("admin user management", () => {
     dbMocks.listLocalUsers.mockResolvedValue([{ id: 2, username: "ops", name: "Operations", email: null, role: "user", isActive: true, createdAt: new Date(), lastSignedIn: new Date() }]);
     dbMocks.createLocalUser.mockResolvedValue({ id: 3, username: "analyst", name: "Network Analyst", email: null, role: "user", isActive: true, createdAt: new Date(), lastSignedIn: new Date() });
     dbMocks.updateLocalUserRole.mockResolvedValue({ id: 3, username: "analyst", name: "Network Analyst", email: null, role: "admin", isActive: true, createdAt: new Date(), lastSignedIn: new Date() });
-    dbMocks.resetLocalUserPassword.mockResolvedValue({ success: true });
+    dbMocks.resetLocalUserPassword.mockResolvedValue({ success: true, temporaryPasswordExpiresAt: new Date("2026-08-31T00:00:00.000Z") });
     dbMocks.setLocalUserActive.mockResolvedValue({ id: 3, username: "analyst", name: "Network Analyst", email: null, role: "admin", isActive: false, createdAt: new Date(), lastSignedIn: new Date() });
   });
 
@@ -49,7 +49,7 @@ describe("admin user management", () => {
   });
 
   it("resets passwords and disables accounts for admins only", async () => {
-    await expect(appRouter.createCaller(context("admin")).admin.resetPassword({ userId: 3, password: "new-secure-password" })).resolves.toEqual({ success: true });
+    await expect(appRouter.createCaller(context("admin")).admin.resetPassword({ userId: 3, password: "new-secure-password" })).resolves.toMatchObject({ success: true, temporaryPasswordExpiresAt: new Date("2026-08-31T00:00:00.000Z") });
     const disabled = await appRouter.createCaller(context("admin")).admin.setActive({ userId: 3, isActive: false });
     expect(disabled.isActive).toBe(false);
     expect(dbMocks.resetLocalUserPassword).toHaveBeenCalledWith({ userId: 3, password: "new-secure-password", actorUserId: 1 });

@@ -108,6 +108,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 const LOCAL_ADMIN_USERNAME = "admin";
 const LOCAL_ADMIN_PASSWORD = "admin";
 const LOCAL_ADMIN_SALT = "smart-analytics-local-v1";
+export const TEMPORARY_PASSWORD_TTL_DAYS = 7;
+export function temporaryPasswordExpiry(now = new Date()) {
+  return new Date(now.getTime() + TEMPORARY_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000);
+}
 export const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) =>
   scryptSync(password, salt, 64).toString("hex");
 
@@ -138,12 +142,13 @@ export type PublicLocalUser = {
   email: string | null;
   role: LocalRole;
   isActive: boolean;
+  temporaryPasswordExpiresAt: Date | null;
   createdAt: Date;
   lastSignedIn: Date;
 };
 
 function toPublicLocalUser(user: typeof users.$inferSelect): PublicLocalUser {
-  return { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role, isActive: user.isActive, createdAt: user.createdAt, lastSignedIn: user.lastSignedIn };
+  return { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role, isActive: user.isActive, temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt, createdAt: user.createdAt, lastSignedIn: user.lastSignedIn };
 }
 
 export async function listLocalUsers() {
@@ -158,7 +163,7 @@ export async function createLocalUser(input: { username: string; password: strin
   if (!db) throw new Error("Database is not available");
   const username = input.username.trim().toLowerCase();
   if (await getUserByUsername(username)) throw new Error("Username already exists");
-  await db.insert(users).values({ openId: `local_${randomUUID()}`, username, passwordHash: hashLocalPassword(input.password), name: input.name.trim(), email: input.email?.trim() || null, loginMethod: "local", role: input.role });
+  await db.insert(users).values({ openId: `local_${randomUUID()}`, username, passwordHash: hashLocalPassword(input.password), temporaryPasswordExpiresAt: temporaryPasswordExpiry(), name: input.name.trim(), email: input.email?.trim() || null, loginMethod: "local", role: input.role });
   const created = await getUserByUsername(username);
   if (!created) throw new Error("User was created but could not be loaded");
   await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.created", resource: username, metadata: JSON.stringify({ role: input.role }) });
@@ -185,7 +190,7 @@ export async function resetLocalUserPassword(input: { userId: number; password: 
   if (!db) throw new Error("Database is not available");
   const target = await getUserById(input.userId);
   if (!target) throw new Error("User not found");
-  await db.update(users).set({ passwordHash: hashLocalPassword(input.password), loginMethod: "local" }).where(eq(users.id, input.userId));
+  await db.update(users).set({ passwordHash: hashLocalPassword(input.password), temporaryPasswordExpiresAt: temporaryPasswordExpiry(), loginMethod: "local" }).where(eq(users.id, input.userId));
   await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.password_reset", resource: target.username || String(target.id), metadata: JSON.stringify({ targetUserId: target.id }) });
   return { success: true } as const;
 }

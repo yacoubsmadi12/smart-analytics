@@ -39,4 +39,11 @@ describe("auth.localLogin", () => {
     await expect(appRouter.createCaller(ctx).auth.localLogin({ username: "admin", password: "admin" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(sdkMocks.signSession).not.toHaveBeenCalled();
   });
+
+  it("rejects an expired temporary password", async () => {
+    dbMocks.getUserByUsername.mockResolvedValue({ id: 1, openId: "local_admin", username: "admin", passwordHash: "hash", name: "System Administrator", role: "admin", isActive: true, temporaryPasswordExpiresAt: new Date(Date.now() - 60_000) });
+    const { ctx } = context();
+    await expect(appRouter.createCaller(ctx).auth.localLogin({ username: "admin", password: "admin" })).rejects.toMatchObject({ code: "FORBIDDEN", message: "This temporary password has expired. Ask an administrator to reset it." });
+    expect(sdkMocks.signSession).not.toHaveBeenCalled();
+  });
 });

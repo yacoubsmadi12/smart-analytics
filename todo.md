@@ -161,3 +161,13 @@
 - [x] Add reset-password and disable/enable controls with clear feedback
 - [x] Add tests for authorization, validation, self-protection, and filtering
 - [x] Verify the updated user directory on desktop/mobile and save a checkpoint
+
+# Temporary Password Expiration
+
+- [x] Persist temporary-password expiration metadata with a safe migration
+- [x] Apply a defined expiration window when creating or resetting temporary passwords
+- [x] Reject expired temporary passwords during local login with a clear message
+- [x] Show expiration state and remaining time in User Management without exposing secrets
+- [x] Add tests for expiration, reset renewal, disabled accounts, and normal passwords
+- [x] Verify the expiration UX on desktop/mobile and save a checkpoint
+- [x] Fix duplicate Clock3 import and add temporaryPasswordExpiresAt to the user-directory view type

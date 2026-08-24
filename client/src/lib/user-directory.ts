@@ -5,6 +5,7 @@ export type UserDirectoryEntry = {
   email: string | null;
   role: "user" | "admin";
   isActive: boolean;
+  temporaryPasswordExpiresAt: Date | null;
   lastSignedIn: Date;
 };
 

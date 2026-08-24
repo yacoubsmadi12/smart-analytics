@@ -186,6 +186,11 @@ export const appRouter = router({
             code: "FORBIDDEN",
             message: "This account is disabled. Contact an administrator.",
           });
+        if (account?.temporaryPasswordExpiresAt && account.temporaryPasswordExpiresAt.getTime() <= Date.now())
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This temporary password has expired. Ask an administrator to reset it.",
+          });
         if (
           !account ||
           !verifyLocalPassword(input.password, account.passwordHash)

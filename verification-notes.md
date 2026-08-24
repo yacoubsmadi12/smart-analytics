@@ -22,3 +22,7 @@ The standalone User Management page was reviewed at 375x812 and 1280x720 after t
 ## User directory controls verification
 
 The User Management directory was reviewed at desktop width after the account-controls update. The search bar, role/status filters, live account count, status badges, role selectors, Reset password actions, and Disable actions are visible and aligned within each user row. The initial mobile capture encountered the expected protected-module loading state during startup; a subsequent desktop capture rendered the complete directory successfully. Automated interaction coverage validates the protected mutations and search/filter helper.
+
+## Temporary password expiration verification
+
+The User Management page was reviewed at mobile and desktop widths. Account cards now show a clock indicator and the non-sensitive state “Standard password — no temporary expiry” for legacy/admin accounts; newly created or reset accounts will show the remaining seven-day window or an expired/reset-required warning. The layout remains readable and the status line fits the responsive card structure.
