@@ -235,9 +235,9 @@
 
 # Infrastructure / Fiber Operations
 
-- [ ] Replace the Infrastructure / Fiber placeholder with a dedicated infrastructure control room
-- [ ] Add protected fiber nodes, links, availability, backhaul, microwave, and planned-upgrade data
-- [ ] Add Fiber Opportunity analysis combining site congestion and fiber availability
-- [ ] Add recommended infrastructure actions such as Fiber Migration with selected-site detail
-- [ ] Add Vitest coverage for infrastructure aggregation, opportunity scoring, and tRPC response shape
+- [x] Replace the Infrastructure / Fiber placeholder with a dedicated infrastructure control room
+- [x] Add protected fiber nodes, links, availability, backhaul, microwave, and planned-upgrade data
+- [x] Add Fiber Opportunity analysis combining site congestion and fiber availability
+- [x] Add recommended infrastructure actions such as Fiber Migration with selected-site detail
+- [x] Add Vitest coverage for infrastructure aggregation, opportunity scoring, and tRPC response shape
 - [ ] Verify Infrastructure / Fiber on desktop/mobile and save a checkpoint

@@ -17,6 +17,7 @@ import {
   getPersistedCustomerExperience,
   getPersistedCustomerOperations,
   getPersistedComplaintOperations,
+  getPersistedInfrastructureOperations,
   getUserByUsername,
   listAiConversations,
   listDataSources,
@@ -36,6 +37,7 @@ import { createPreviewNetworkOperations } from "./network-analytics";
 import { createPreviewCustomerExperience } from "./cx-analytics";
 import { createPreviewCustomerOperations } from "./customers-analytics";
 import { createPreviewComplaintOperations } from "./complaints-analytics";
+import { createPreviewInfrastructureOperations } from "./infrastructure-analytics";
 
 const permissionsByRole: Record<string, string[]> = {
   admin: [
@@ -319,6 +321,11 @@ export const appRouter = router({
   complaints: router({
     operations: protectedProcedure.query(async () =>
       (await getPersistedComplaintOperations()) ?? createPreviewComplaintOperations(mapSites)
+    ),
+  }),
+  infrastructure: router({
+    operations: protectedProcedure.query(async () =>
+      (await getPersistedInfrastructureOperations()) ?? createPreviewInfrastructureOperations(mapSites)
     ),
   }),
   ai: router({

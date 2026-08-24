@@ -20,6 +20,7 @@ import {
 import { ENV } from "./_core/env";
 import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
 import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
+import { assembleInfrastructureOperations } from "./infrastructure-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
 
@@ -573,3 +574,39 @@ export async function listImportRuns(userId: number) {
 }
 
 // Feature queries are kept server-side so credentials and authorization never reach the client.
+
+
+export async function getPersistedInfrastructureOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [fiberRows, siteRows, cellRows] = await Promise.all([
+      db.select().from(fiberInfrastructure),
+      db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
+      db.select({ siteId: cells.siteId, congestion: cells.congestion }).from(cells),
+    ]);
+    if (!fiberRows.length) return null;
+    const numberValue = (value: unknown, fallback = 0) => { const number = Number(value); return Number.isFinite(number) ? number : fallback; };
+    const congestionByRegion = new Map<string, number[]>();
+    cellRows.forEach(row => {
+      const site = siteRows.find(item => item.id === row.siteId);
+      const region = site?.region ?? site?.name ?? "Unmapped region";
+      const values = congestionByRegion.get(region) ?? [];
+      values.push(numberValue(row.congestion));
+      congestionByRegion.set(region, values);
+    });
+    const records = fiberRows.map((row, index) => {
+      const region = row.region ?? "Unmapped region";
+      const regionSites = siteRows.filter(site => (site.region ?? site.name ?? "Unmapped region") === region);
+      const site = regionSites[index % Math.max(1, regionSites.length)];
+      const congestionValues = congestionByRegion.get(region) ?? [];
+      const congestion = congestionValues.length ? congestionValues.reduce((sum, value) => sum + value, 0) / congestionValues.length : 35;
+      const fiberAvailability = numberValue(row.availability, 0);
+      return { id: String(row.id), nodeCode: row.nodeCode, region, latitude: numberValue(row.latitude ?? site?.latitude, 31.95), longitude: numberValue(row.longitude ?? site?.longitude, 35.91), fiberAvailability, congestion, status: row.status ?? "healthy", backhaul: fiberAvailability >= 95 ? "fiber" : fiberAvailability >= 80 ? "mixed" : "microwave", plannedUpgrade: congestion >= 70 || fiberAvailability < 85, linkCount: Math.max(1, regionSites.length || 1) } as const;
+    });
+    return assembleInfrastructureOperations("persisted", records);
+  } catch (error) {
+    console.warn("[Database] Infrastructure operations query unavailable:", error);
+    return null;
+  }
+}
