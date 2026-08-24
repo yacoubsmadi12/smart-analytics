@@ -21,6 +21,7 @@ import { ENV } from "./_core/env";
 import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
 import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
+import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -174,6 +175,48 @@ export async function getPersistedCustomerOperations() {
     return assembleCustomerOperations("persisted", inputs);
   } catch (error) {
     console.warn("[Database] Customer operations query unavailable:", error);
+    return null;
+  }
+}
+
+export async function getPersistedComplaintOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [complaintRows, cellRows] = await Promise.all([
+      db.select({ complaint: complaints, site: sites, customer: customers }).from(complaints).leftJoin(sites, eq(complaints.siteId, sites.id)).leftJoin(customers, eq(complaints.customerId, customers.id)),
+      db.select({ siteId: cells.siteId, cellCode: cells.cellCode, congestion: cells.congestion, availability: cells.availability }).from(cells),
+    ]);
+    if (!complaintRows.length) return null;
+    const numberValue = (value: unknown) => Number(value ?? 0);
+    const worstCellsBySite = new Map<number, string[]>();
+    cellRows.forEach(row => {
+      const isWorst = numberValue(row.congestion) >= 70 || numberValue(row.availability) < 95;
+      if (isWorst) worstCellsBySite.set(row.siteId, [...(worstCellsBySite.get(row.siteId) ?? []), row.cellCode]);
+    });
+    const records: ComplaintRecord[] = complaintRows.map(({ complaint, site, customer }) => {
+      const worstCells = complaint.siteId ? (worstCellsBySite.get(complaint.siteId) ?? []) : [];
+      const category = complaint.category || "Uncategorized";
+      const networkRelated = isNetworkComplaint(category) || worstCells.length > 0;
+      const region = site?.region ?? customer?.region ?? site?.name ?? "Unmapped region";
+      return {
+        id: String(complaint.id),
+        category,
+        severity: complaint.severity,
+        status: complaint.status,
+        count: 1,
+        region,
+        siteId: complaint.siteId ? String(complaint.siteId) : null,
+        latitude: numberValue(site?.latitude) || 31.95,
+        longitude: numberValue(site?.longitude) || 35.91,
+        networkRelated,
+        coveredWorstCellCount: networkRelated && worstCells.length ? 1 : 0,
+        worstCellCodes: worstCells.slice(0, 3),
+      };
+    });
+    return assembleComplaintOperations("persisted", records);
+  } catch (error) {
+    console.warn("[Database] Complaint operations query unavailable:", error);
     return null;
   }
 }

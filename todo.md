@@ -220,3 +220,15 @@
 - [x] Make the 1 km high-value/congested filter plot matching customer points or clusters, not only area markers
 - [x] Re-verify Customers desktop/mobile after customer-level map detail and save a new checkpoint
 - [x] Save a new checkpoint after the verified Customers geospatial-detail implementation
+
+# Complaints Intelligence Operations
+
+- [x] Replace the Complaints placeholder with a dedicated complaints control room
+- [x] Add protected complaint totals, open status, network-related share, categories, severity, growth, and hotspot data
+- [x] Correlate complaint hotspots with coverage of worst network cells and explain the affected share
+- [x] Add category, severity, region, and network-related filters with selected hotspot detail
+- [x] Add Vitest coverage for complaint aggregation, growth, hotspot correlation, and tRPC response shape
+- [x] Verify Complaints on desktop/mobile and save a checkpoint
+- [x] Align the complaint coverage test with the precise 71.8% calculation and 72% displayed rounding
+- [x] Make the Complaints category filter match hotspot categories directly instead of using volume heuristics
+- [x] Save a new checkpoint after the verified Complaints Intelligence implementation
