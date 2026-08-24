@@ -232,3 +232,12 @@
 - [x] Align the complaint coverage test with the precise 71.8% calculation and 72% displayed rounding
 - [x] Make the Complaints category filter match hotspot categories directly instead of using volume heuristics
 - [x] Save a new checkpoint after the verified Complaints Intelligence implementation
+
+# Infrastructure / Fiber Operations
+
+- [ ] Replace the Infrastructure / Fiber placeholder with a dedicated infrastructure control room
+- [ ] Add protected fiber nodes, links, availability, backhaul, microwave, and planned-upgrade data
+- [ ] Add Fiber Opportunity analysis combining site congestion and fiber availability
+- [ ] Add recommended infrastructure actions such as Fiber Migration with selected-site detail
+- [ ] Add Vitest coverage for infrastructure aggregation, opportunity scoring, and tRPC response shape
+- [ ] Verify Infrastructure / Fiber on desktop/mobile and save a checkpoint
