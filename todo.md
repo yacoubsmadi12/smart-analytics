@@ -278,3 +278,14 @@
 - [x] Add persisted aggregation with a safe operational preview fallback
 - [x] Add Vitest coverage for priority ranking, impact scoring, and tRPC response shape
 - [x] Verify Priorities on desktop/mobile and save a checkpoint
+
+# Platform Operations Completion
+
+- [x] Upgrade AI Assistant into a data-grounded conversational decision copilot with map/site context
+- [x] Add actionable AI answers for network, complaints, churn, congestion, fiber, and daily priorities questions
+- [x] Replace Alerts placeholder with persisted alert records and filterable acknowledge/assign/resolve actions
+- [x] Connect alerts to related sites, cells, complaints, revenue risk, and opportunities
+- [x] Replace Reports placeholder with report type selection, live summary generation, and CSV export
+- [x] Complete Data Management, User Management, System Settings, and Audit Logs gaps shown in the supplied screens
+- [x] Add Vitest coverage for AI, alerts, reports, settings, and audit workflows
+- [x] Verify all affected modules on desktop/mobile and save a checkpoint

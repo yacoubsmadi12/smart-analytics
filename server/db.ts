@@ -771,3 +771,10 @@ export async function getPersistedPrioritiesOperations() {
     return null;
   }
 }
+
+
+export async function listAuditLogs(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit);
+}

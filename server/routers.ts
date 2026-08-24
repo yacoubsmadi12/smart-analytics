@@ -22,6 +22,7 @@ import {
   getPersistedMarketingOperations,
   getPersistedBusinessRevenueOperations,
   getPersistedPrioritiesOperations,
+  listAuditLogs,
   getUserByUsername,
   listAiConversations,
   listDataSources,
@@ -46,6 +47,9 @@ import { createPreviewSalesOperations } from "./sales-analytics";
 import { createPreviewMarketingOperations } from "./marketing-analytics";
 import { createPreviewBusinessRevenueOperations } from "./business-revenue-analytics";
 import { createPreviewPrioritiesOperations } from "./priorities-analytics";
+import { createOperationalAlerts, createReport, type ReportKind } from "./platform-operations";
+
+let systemSettings = { networkImpact: 35, customerImpact: 20, revenueImpact: 25, language: "English", timezone: "Asia/Amman", dataRefreshMinutes: 15, theme: "Telecom NOC" };
 
 const permissionsByRole: Record<string, string[]> = {
   admin: [
@@ -356,6 +360,20 @@ export const appRouter = router({
       (await getPersistedPrioritiesOperations()) ?? createPreviewPrioritiesOperations(mapSites)
     ),
   }),
+  alerts: router({
+    operations: protectedProcedure.query(() => createOperationalAlerts(mapSites)),
+    updateStatus: protectedProcedure.input(z.object({ id: z.string().min(1), status: z.enum(["acknowledged", "resolved"]), assignee: z.string().max(120).optional() })).mutation(({ input }) => ({ ...createOperationalAlerts(mapSites).find(alert => alert.id === input.id)!, status: input.status, assignee: input.assignee ?? null })),
+  }),
+  reports: router({
+    generate: protectedProcedure.input(z.object({ kind: z.enum(["executive", "network", "customer-experience", "business", "priority"]) })).query(({ input }) => createReport(input.kind as ReportKind, mapSites)),
+  }),
+  settings: router({
+    get: protectedProcedure.query(({ ctx }) => { adminOnly(ctx.user); return systemSettings; }),
+    update: protectedProcedure.input(z.object({ networkImpact: z.number().min(0).max(100), customerImpact: z.number().min(0).max(100), revenueImpact: z.number().min(0).max(100), dataRefreshMinutes: z.number().int().min(1).max(1440), timezone: z.string().min(1).max(80), theme: z.string().min(1).max(80) })).mutation(({ ctx, input }) => { adminOnly(ctx.user); systemSettings = { ...systemSettings, ...input }; return systemSettings; }),
+  }),
+  audit: router({
+    list: protectedProcedure.query(({ ctx }) => { adminOnly(ctx.user); return listAuditLogs(); }),
+  }),
   ai: router({
     ask: protectedProcedure
       .input(
@@ -374,9 +392,10 @@ export const appRouter = router({
             message: "Choose a permitted intelligence domain",
           });
         const site = input.siteId ? mapSites.find(item => item.id === input.siteId) : undefined;
+        const datasetContext = mapSites.map(item => `${item.id} ${item.name}: availability ${item.availability}%, congestion ${item.congestion}%, customers ${item.customers}, complaints ${item.complaints}, churn ${item.churn}%, fiber ${item.fiber}%, revenue risk ${item.revenueRisk}, sales opportunities ${item.salesOpportunities}`).join("\\n");
         const scopedQuestion = site
-          ? `[Selected site context: ${site.id} · ${site.name}] Network availability ${site.availability}%, traffic ${site.traffic} TB, congestion ${site.congestion}% PRB, customers ${site.customers}, complaints ${site.complaints}, churn ${site.churn}%, fiber ${site.fiber}%, revenue risk $${site.revenueRisk.toLocaleString()}, sales opportunities ${site.salesOpportunities}.]\n${input.question}`
-          : input.question;
+          ? `[Selected site context: ${site.id} · ${site.name}] Network availability ${site.availability}%, traffic ${site.traffic} TB, congestion ${site.congestion}% PRB, customers ${site.customers}, complaints ${site.complaints}, churn ${site.churn}%, fiber ${site.fiber}%, revenue risk $${site.revenueRisk.toLocaleString()}, sales opportunities ${site.salesOpportunities}.]\\n${input.question}`
+          : `${input.question}\\n\\n[Operational dataset]\\n${datasetContext}`;
         const response = await invokeLLM({
           messages: [
             {
@@ -396,7 +415,10 @@ export const appRouter = router({
           question: scopedQuestion,
           answer,
         });
-        return { answer, domain: input.domain, loggedAt: new Date() };
+        const normalizedQuestion = input.question.toLowerCase();
+        let relatedSiteIds = mapSites.filter(item => normalizedQuestion.includes(item.id.toLowerCase()) || normalizedQuestion.includes(item.name.toLowerCase())).map(item => item.id);
+        if (!relatedSiteIds.length && /congest|complaint|churn|revenue|critical/.test(normalizedQuestion)) relatedSiteIds = mapSites.filter(item => item.congestion >= 85 || item.complaints >= 100 || item.churn >= 6 || item.revenueRisk >= 180000).map(item => item.id);
+        return { answer, domain: input.domain, loggedAt: new Date(), relatedSiteIds, mapAction: relatedSiteIds.length ? "highlight-sites" : "none" };
       }),
     history: protectedProcedure
       .input(z.object({ domain: z.string().optional() }).optional())
