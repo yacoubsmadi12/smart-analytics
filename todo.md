@@ -289,3 +289,8 @@
 - [x] Complete Data Management, User Management, System Settings, and Audit Logs gaps shown in the supplied screens
 - [x] Add Vitest coverage for AI, alerts, reports, settings, and audit workflows
 - [x] Verify all affected modules on desktop/mobile and save a checkpoint
+
+# GitHub Delivery
+
+- [ ] Create a private GitHub repository and push the current Smart Analytics project
+- [ ] Verify the remote repository contents and provide download/install/run instructions
