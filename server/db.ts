@@ -25,6 +25,7 @@ import { assembleInfrastructureOperations } from "./infrastructure-analytics";
 import { assembleSalesOperations } from "./sales-analytics";
 import { assembleMarketingOperations } from "./marketing-analytics";
 import { assembleBusinessRevenueOperations } from "./business-revenue-analytics";
+import { assemblePrioritiesOperations, type PriorityInput } from "./priorities-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
 
@@ -719,6 +720,54 @@ export async function getPersistedBusinessRevenueOperations() {
     return assembleBusinessRevenueOperations("persisted", inputs);
   } catch (error) {
     console.warn("[Database] Business & Revenue operations query unavailable:", error);
+    return null;
+  }
+}
+
+
+export async function getPersistedPrioritiesOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [siteRows, kpiRows, customerRows, complaintRows, revenueRows, salesRows, fiberRows] = await Promise.all([
+      db.select({ id: sites.id, name: sites.name, region: sites.region }).from(sites),
+      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})`, throughput: sql<string>`avg(${networkKpis.throughputMbps})` }).from(networkKpis).groupBy(networkKpis.siteId),
+      db.select({ region: customers.region, churnRisk: customers.churnRisk }).from(customers),
+      db.select({ siteId: complaints.siteId, severity: complaints.severity, status: complaints.status }).from(complaints),
+      db.select({ region: revenues.region, atRisk: revenues.atRisk }).from(revenues),
+      db.select({ region: salesOpportunities.region, value: salesOpportunities.value }).from(salesOpportunities),
+      db.select({ region: fiberInfrastructure.region, availability: fiberInfrastructure.availability }).from(fiberInfrastructure),
+    ]);
+    if (!siteRows.length) return null;
+    const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
+    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, { congestion: num(row.congestion, 35), throughput: num(row.throughput, 0) }]));
+    const customersByRegion = new Map<string, number>();
+    for (const row of customerRows) { const key = row.region ?? "Unmapped region"; if (num(row.churnRisk) >= 6) customersByRegion.set(key, (customersByRegion.get(key) ?? 0) + 1); }
+    const complaintsBySite = new Map<number, number>();
+    for (const row of complaintRows) if (row.siteId && row.status !== "resolved") complaintsBySite.set(row.siteId, (complaintsBySite.get(row.siteId) ?? 0) + 1);
+    const revenueByRegion = new Map<string, number>();
+    for (const row of revenueRows) { const key = row.region ?? "Unmapped region"; revenueByRegion.set(key, (revenueByRegion.get(key) ?? 0) + num(row.atRisk)); }
+    const pipelineByRegion = new Map<string, number>();
+    for (const row of salesRows) { const key = row.region ?? "Unmapped region"; pipelineByRegion.set(key, (pipelineByRegion.get(key) ?? 0) + num(row.value)); }
+    const fiberByRegion = new Map<string, number>();
+    for (const row of fiberRows) { const key = row.region ?? "Unmapped region"; fiberByRegion.set(key, Math.max(fiberByRegion.get(key) ?? 0, num(row.availability, 0))); }
+    const inputs = siteRows.flatMap(site => {
+      const region = site.region ?? site.name;
+      const kpi = kpiBySite.get(site.id) ?? { congestion: 35, throughput: 0 };
+      const revenueRisk = revenueByRegion.get(region) ?? 0;
+      const affectedCustomers = customersByRegion.get(region) ?? 0;
+      const complaintCount = complaintsBySite.get(site.id) ?? 0;
+      const fiber = fiberByRegion.get(region) ?? 70;
+      const networkHealth = Math.max(0, 100 - kpi.congestion);
+      const items = [] as PriorityInput[];
+      if (kpi.congestion >= 70) items.push({ id: `${site.id}-congestion`, region, issue: "4G congestion", category: "network", score: Math.round(kpi.congestion), severity: kpi.congestion >= 85 ? "critical" : "high", affectedCustomers: Math.max(affectedCustomers, Math.round(kpi.congestion * 8)), revenueRisk, salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Capacity Upgrade", rationale: `${Math.round(kpi.congestion)}% congestion is reducing available headroom.` });
+      if (fiber < 80) items.push({ id: `${site.id}-backhaul`, region, issue: "Poor backhaul", category: "fiber", score: Math.round(100 - fiber), severity: fiber < 65 ? "high" : "medium", affectedCustomers: Math.max(affectedCustomers, 80), revenueRisk: Math.round(revenueRisk * 0.55), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Fiber Migration", rationale: `${Math.round(fiber)}% fiber readiness leaves the site exposed to backhaul pressure.` });
+      if (complaintCount >= 3) items.push({ id: `${site.id}-complaints`, region, issue: "High complaints", category: "customer", score: Math.min(100, complaintCount * 8), severity: complaintCount >= 10 ? "high" : "medium", affectedCustomers: Math.max(affectedCustomers, complaintCount * 12), revenueRisk: Math.round(revenueRisk * 0.42), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Network Investigation", rationale: `${complaintCount} open complaints are concentrated around this site.` });
+      return items;
+    });
+    return inputs.length ? assemblePrioritiesOperations("persisted", inputs) : null;
+  } catch (error) {
+    console.warn("[Database] Priorities query unavailable:", error);
     return null;
   }
 }

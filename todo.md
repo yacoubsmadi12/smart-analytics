@@ -269,3 +269,12 @@
 - [x] Add revenue opportunities and investment opportunities with recommended actions
 - [x] Add Vitest coverage for revenue aggregation, risk scoring, opportunity ranking, and tRPC response shape
 - [x] Verify Business & Revenue on desktop/mobile and save a checkpoint
+
+# Daily Priorities Intelligence Operations
+
+- [x] Replace the Priorities placeholder with a dedicated Top 5 decision-support dashboard
+- [x] Add protected priority signals combining network, customer, complaints, revenue, and sales impact
+- [x] Add explainable priority scoring, severity, affected customers, revenue risk, and recommended action
+- [x] Add persisted aggregation with a safe operational preview fallback
+- [x] Add Vitest coverage for priority ranking, impact scoring, and tRPC response shape
+- [x] Verify Priorities on desktop/mobile and save a checkpoint
