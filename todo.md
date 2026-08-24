@@ -292,5 +292,5 @@
 
 # GitHub Delivery
 
-- [ ] Create a private GitHub repository and push the current Smart Analytics project
-- [ ] Verify the remote repository contents and provide download/install/run instructions
+- [x] Create a private GitHub repository and push the current Smart Analytics project
+- [x] Verify the remote repository contents and provide download/install/run instructions
