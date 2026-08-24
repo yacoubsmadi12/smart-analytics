@@ -240,4 +240,4 @@
 - [x] Add Fiber Opportunity analysis combining site congestion and fiber availability
 - [x] Add recommended infrastructure actions such as Fiber Migration with selected-site detail
 - [x] Add Vitest coverage for infrastructure aggregation, opportunity scoring, and tRPC response shape
-- [ ] Verify Infrastructure / Fiber on desktop/mobile and save a checkpoint
+- [x] Verify Infrastructure / Fiber on desktop/mobile and save a checkpoint
