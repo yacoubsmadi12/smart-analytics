@@ -24,6 +24,7 @@ import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./
 import { assembleInfrastructureOperations } from "./infrastructure-analytics";
 import { assembleSalesOperations } from "./sales-analytics";
 import { assembleMarketingOperations } from "./marketing-analytics";
+import { assembleBusinessRevenueOperations } from "./business-revenue-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
 
@@ -678,6 +679,46 @@ export async function getPersistedMarketingOperations() {
     return assembleMarketingOperations("persisted", inputs);
   } catch (error) {
     console.warn("[Database] Marketing operations query unavailable:", error);
+    return null;
+  }
+}
+
+
+export async function getPersistedBusinessRevenueOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [revenueRows, customerRows, complaintRows, siteRows, kpiRows, salesRows] = await Promise.all([
+      db.select().from(revenues),
+      db.select({ id: customers.id, region: customers.region, segment: customers.segment, churnRisk: customers.churnRisk }).from(customers),
+      db.select({ siteId: complaints.siteId }).from(complaints),
+      db.select({ id: sites.id, name: sites.name, region: sites.region }).from(sites),
+      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
+      db.select({ region: salesOpportunities.region, value: sql<string>`sum(${salesOpportunities.value})` }).from(salesOpportunities).groupBy(salesOpportunities.region),
+    ]);
+    if (!revenueRows.length) return null;
+    const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
+    const customersByRegion = new Map<string, typeof customerRows>();
+    for (const customer of customerRows) { const key = customer.region ?? "Unmapped region"; customersByRegion.set(key, [...(customersByRegion.get(key) ?? []), customer]); }
+    const complaintBySite = new Map<number, number>();
+    for (const complaint of complaintRows) if (complaint.siteId) complaintBySite.set(complaint.siteId, (complaintBySite.get(complaint.siteId) ?? 0) + 1);
+    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, num(row.congestion, 35)]));
+    const pipelineByRegion = new Map(salesRows.map(row => [row.region ?? "Unmapped region", num(row.value)]));
+    const inputs = revenueRows.map((row, index) => {
+      const region = row.region ?? "Unmapped region";
+      const site = siteRows.find(item => (item.region ?? item.name) === region) ?? siteRows[index % Math.max(1, siteRows.length)];
+      const regionalCustomers = customersByRegion.get(region) ?? [];
+      const customersAtRisk = regionalCustomers.filter(item => num(item.churnRisk) >= 6).length;
+      const enterpriseImpact = regionalCustomers.filter(item => item.segment === "enterprise").length;
+      const congestion = site ? num(kpiBySite.get(site.id), 35) : 35;
+      const networkIssue = congestion >= 70;
+      const revenueAtRisk = num(row.atRisk);
+      const salesPipeline = num(pipelineByRegion.get(region));
+      return { id: String(row.id), region, period: row.period, revenueAtRisk, customersAtRisk, enterpriseImpact, salesPipeline, revenueOpportunity: Math.round(salesPipeline * (networkIssue ? 0.35 : 0.62)), investmentOpportunity: networkIssue ? Math.round(revenueAtRisk * 0.6) : Math.round(revenueAtRisk * 0.12), networkHealth: Math.max(0, 100 - congestion), networkIssue, action: networkIssue ? "Network remediation" : "Protect and grow", status: networkIssue ? "Urgent" : "Opportunity" };
+    });
+    return assembleBusinessRevenueOperations("persisted", inputs);
+  } catch (error) {
+    console.warn("[Database] Business & Revenue operations query unavailable:", error);
     return null;
   }
 }

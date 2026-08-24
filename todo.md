@@ -260,3 +260,12 @@
 - [x] Add Vitest coverage for campaign aggregation, performance, risk scoring, and tRPC response shape
 - [x] Verify Marketing on desktop/mobile and save a checkpoint
 - [x] Focus the default Marketing detail on a campaign with Customer Experience Risk when one exists
+
+# Business & Revenue Intelligence Operations
+
+- [x] Replace the Business & Revenue placeholder with a dedicated financial intelligence dashboard
+- [x] Add protected revenue-at-risk, customers-at-risk, enterprise-impact, sales-pipeline, and opportunity data
+- [x] Add region-level linkage between network health, customer exposure, and monthly revenue risk
+- [x] Add revenue opportunities and investment opportunities with recommended actions
+- [x] Add Vitest coverage for revenue aggregation, risk scoring, opportunity ranking, and tRPC response shape
+- [x] Verify Business & Revenue on desktop/mobile and save a checkpoint

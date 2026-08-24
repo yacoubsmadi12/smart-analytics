@@ -15,9 +15,10 @@ import ComplaintsPage from "./pages/ComplaintsPage";
 import InfrastructureFiberPage from "./pages/InfrastructureFiberPage";
 import SalesPage from "./pages/SalesPage";
 import MarketingPage from "./pages/MarketingPage";
+import BusinessRevenuePage from "./pages/BusinessRevenuePage";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-function ModuleRoute() { const [, params] = useRoute("/:module"); const slug = params?.module || "network"; if (slug === "intelligence-map") return <IntelligenceMapPage />; if (slug === "network") return <NetworkPage />; if (slug === "customer-experience") return <CustomerExperiencePage />; if (slug === "customers") return <CustomersPage />; if (slug === "complaints") return <ComplaintsPage />; if (slug === "infrastructure-fiber") return <InfrastructureFiberPage />; if (slug === "sales") return <SalesPage />; if (slug === "marketing") return <MarketingPage />; return <ModulePage slug={slug}/>; }
+function ModuleRoute() { const [, params] = useRoute("/:module"); const slug = params?.module || "network"; if (slug === "intelligence-map") return <IntelligenceMapPage />; if (slug === "network") return <NetworkPage />; if (slug === "customer-experience") return <CustomerExperiencePage />; if (slug === "customers") return <CustomersPage />; if (slug === "complaints") return <ComplaintsPage />; if (slug === "infrastructure-fiber") return <InfrastructureFiberPage />; if (slug === "sales") return <SalesPage />; if (slug === "marketing") return <MarketingPage />; if (slug === "business-revenue") return <BusinessRevenuePage />; return <ModulePage slug={slug}/>; }
 
 function Router() {
   const [isLoginRoute] = useRoute("/login");
