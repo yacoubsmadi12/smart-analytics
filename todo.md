@@ -250,3 +250,13 @@
 - [x] Add high-value opportunity alerts when nearby sites have network issues
 - [x] Add Vitest coverage for sales aggregation, readiness scoring, alerts, and tRPC response shape
 - [x] Verify Sales on desktop/mobile and save a checkpoint
+
+# Marketing Intelligence Operations
+
+- [x] Replace the Marketing placeholder with a dedicated marketing intelligence dashboard
+- [x] Add protected campaign, target-area, market-potential, performance, 5G-potential, and segment data
+- [x] Add area-level churn, complaint, and network signals for campaign readiness
+- [x] Add a Customer Experience Risk warning for campaigns targeting high-risk areas
+- [x] Add Vitest coverage for campaign aggregation, performance, risk scoring, and tRPC response shape
+- [x] Verify Marketing on desktop/mobile and save a checkpoint
+- [x] Focus the default Marketing detail on a campaign with Customer Experience Risk when one exists

@@ -19,6 +19,7 @@ import {
   getPersistedComplaintOperations,
   getPersistedInfrastructureOperations,
   getPersistedSalesOperations,
+  getPersistedMarketingOperations,
   getUserByUsername,
   listAiConversations,
   listDataSources,
@@ -40,6 +41,7 @@ import { createPreviewCustomerOperations } from "./customers-analytics";
 import { createPreviewComplaintOperations } from "./complaints-analytics";
 import { createPreviewInfrastructureOperations } from "./infrastructure-analytics";
 import { createPreviewSalesOperations } from "./sales-analytics";
+import { createPreviewMarketingOperations } from "./marketing-analytics";
 
 const permissionsByRole: Record<string, string[]> = {
   admin: [
@@ -333,6 +335,11 @@ export const appRouter = router({
   sales: router({
     operations: protectedProcedure.query(async () =>
       (await getPersistedSalesOperations()) ?? createPreviewSalesOperations(mapSites)
+    ),
+  }),
+  marketing: router({
+    operations: protectedProcedure.query(async () =>
+      (await getPersistedMarketingOperations()) ?? createPreviewMarketingOperations(mapSites)
     ),
   }),
   ai: router({

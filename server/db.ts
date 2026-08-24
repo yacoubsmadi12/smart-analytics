@@ -9,6 +9,7 @@ import {
   sites,
   fiberInfrastructure,
   salesOpportunities,
+  marketingCampaigns,
   dataSources,
   networkKpis,
   revenues,
@@ -22,6 +23,7 @@ import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCe
 import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
 import { assembleInfrastructureOperations } from "./infrastructure-analytics";
 import { assembleSalesOperations } from "./sales-analytics";
+import { assembleMarketingOperations } from "./marketing-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
 
@@ -639,6 +641,43 @@ export async function getPersistedSalesOperations() {
     return assembleSalesOperations("persisted", inputs);
   } catch (error) {
     console.warn("[Database] Sales operations query unavailable:", error);
+    return null;
+  }
+}
+
+
+export async function getPersistedMarketingOperations() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [campaignRows, customerRows, complaintRows, siteRows, kpiRows, fiberRows] = await Promise.all([
+      db.select().from(marketingCampaigns),
+      db.select({ id: customers.id, region: customers.region, segment: customers.segment, churnRisk: customers.churnRisk }).from(customers),
+      db.select({ siteId: complaints.siteId, severity: complaints.severity }).from(complaints),
+      db.select({ id: sites.id, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
+      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
+      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
+    ]);
+    if (!campaignRows.length) return null;
+    const numberValue = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
+    const customersByRegion = new Map<string, typeof customerRows>();
+    for (const customer of customerRows) { const key = customer.region ?? "Unmapped region"; customersByRegion.set(key, [...(customersByRegion.get(key) ?? []), customer]); }
+    const complaintsBySite = new Map<number, number>();
+    for (const complaint of complaintRows) if (complaint.siteId) complaintsBySite.set(complaint.siteId, (complaintsBySite.get(complaint.siteId) ?? 0) + 1);
+    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, numberValue(row.congestion, 35)]));
+    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped region", numberValue(row.availability, 80)]));
+    const inputs = campaignRows.map((campaign, index) => {
+      const region = campaign.region ?? "Unmapped region";
+      const site = siteRows.find(item => (item.region ?? item.name) === region) ?? siteRows[index % Math.max(1, siteRows.length)];
+      const regionalCustomers = customersByRegion.get(region) ?? [];
+      const avgChurn = regionalCustomers.length ? regionalCustomers.reduce((sum, item) => sum + numberValue(item.churnRisk), 0) / regionalCustomers.length : 0;
+      const complaintCount = site ? complaintsBySite.get(site.id) ?? 0 : 0;
+      const congestion = site ? numberValue(kpiBySite.get(site.id), 35) : 35;
+      return { id: String(campaign.id), name: campaign.name, region, status: campaign.status ?? "Planned", budget: numberValue(campaign.budget), conversionRate: numberValue(campaign.conversionRate), targetArea: region, marketPotential: Math.min(99, Math.round(45 + regionalCustomers.length / 10)), fiveGPotential: Math.min(100, Math.round(45 + (site ? 4 : 0) * 8)), customerSegment: regionalCustomers[0]?.segment ?? "consumer", churnRisk: avgChurn, complaintRate: regionalCustomers.length ? Number((complaintCount / regionalCustomers.length * 1000).toFixed(1)) : 0, networkReadiness: Math.max(0, 100 - congestion), fiberReadiness: numberValue(fiberByRegion.get(region), 80) } as const;
+    });
+    return assembleMarketingOperations("persisted", inputs);
+  } catch (error) {
+    console.warn("[Database] Marketing operations query unavailable:", error);
     return null;
   }
 }
