@@ -37,14 +37,11 @@ describe("network.operations procedure", () => {
     expect(result.cells[0]).toMatchObject({ cellCode: "CELL-001", impactedCustomers: 1800, complaints: 14, fiber: 96 });
   });
 
-  it("falls back to an operational preview when persisted records are unavailable", async () => {
+  it("returns no operational dataset when persisted records are unavailable", async () => {
     getPersistedNetworkOperations.mockResolvedValueOnce(null);
 
     const result = await appRouter.createCaller(context("admin")).network.operations();
 
-    expect(result.source).toBe("operational-preview");
-    expect(result.summary.sites).toBeGreaterThan(0);
-    expect(result.summary.cells).toBeGreaterThan(0);
-    expect(result.cells.slice(0, 10).every(cell => cell.reason && cell.impactedCustomers > 0)).toBe(true);
+    expect(result).toBeNull();
   });
 });

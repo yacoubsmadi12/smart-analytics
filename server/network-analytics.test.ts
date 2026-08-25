@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assembleNetworkOperations, createPreviewNetworkOperations, rankWorstCells, type NetworkCell } from "./network-analytics";
+import { assembleNetworkOperations, rankWorstCells, type NetworkCell } from "./network-analytics";
 
 const cell = (overrides: Partial<NetworkCell> = {}): NetworkCell => ({
   cellCode: "AMW-042-4G-01",
@@ -20,16 +20,6 @@ const cell = (overrides: Partial<NetworkCell> = {}): NetworkCell => ({
 });
 
 describe("network analytics", () => {
-  it("creates the nine operational dimensions from the site dataset", () => {
-    const result = createPreviewNetworkOperations([
-      { id: "AMW-042", name: "Amman West", status: "critical", availability: 94, traffic: 1.4, congestion: 94, cells4g: 2, cells5g: 1, customers: 8420, complaints: 128, fiber: 92, throughput: 42.8 },
-    ]);
-    expect(result.source).toBe("operational-preview");
-    expect(result.technology).toEqual(expect.objectContaining({ "2G": expect.any(Object), "3G": expect.any(Object), "4G": expect.any(Object), "5G": expect.any(Object) }));
-    expect(result.cells.length).toBeGreaterThan(4);
-    expect(result.summary).toMatchObject({ sites: 1, cells: result.cells.length });
-    expect(result.cells.every(item => item.reason && item.impactedCustomers > 0)).toBe(true);
-  });
 
   it("ranks critical and congested cells before healthy cells", () => {
     const result = rankWorstCells([

@@ -290,18 +290,10 @@
 - [x] Add Vitest coverage for AI, alerts, reports, settings, and audit workflows
 - [x] Verify all affected modules on desktop/mobile and save a checkpoint
 
-# GitHub Delivery
+# Synthetic Data Cleanup
 
-- [x] Create a private GitHub repository and push the current Smart Analytics project
-- [x] Verify the remote repository contents and provide download/install/run instructions
-
-# Data Governance and Impact Mapping
-
-- [x] Add built-in dataset documentation for Network Sites, Network KPI, Complaints, and Customers
-- [x] Add required fields, supported ingestion methods, formats, validation rules, relationships, and consuming modules per dataset
-- [x] Add dataset navigation with Data Sources, Upload Data, Data Mapping, Data Validation, Data Documentation, Data Impact, Import History, and Data Quality views
-- [x] Add Where is this data used? impact view for every documented dataset
-- [x] Add Download Template actions for documented datasets
-- [x] Add upload validation, preview, import confirmation, and impact preview flow
-- [x] Add automatic site_id relationship documentation and cross-dataset impact summaries
-- [x] Add Vitest coverage and responsive desktop/mobile verification for Data Governance
+- [x] Audit server and client code for hardcoded, preview, sample, demo, or fabricated operational records
+- [x] Remove or clearly label non-source-backed operational data and replace it with empty/source-unavailable states
+- [x] Preserve documented schema examples and UI templates without presenting them as live analytics
+- [x] Add tests proving analytics surfaces do not display synthetic records when source data is unavailable
+- [x] Verify the cleaned modules visually, run checks/tests/build, save a checkpoint, and push all changes to GitHub

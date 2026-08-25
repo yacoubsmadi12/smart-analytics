@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assembleCustomerOperations, buildCustomerArea, createPreviewCustomerOperations, filterCustomerAreas, type CustomerAreaInput } from "./customers-analytics";
+import { assembleCustomerOperations, buildCustomerArea, filterCustomerAreas, type CustomerAreaInput } from "./customers-analytics";
 
 const input = (overrides: Partial<CustomerAreaInput> = {}): CustomerAreaInput => ({ id: "AMW-042", name: "Amman West", region: "Amman West", customers: 8420, enterpriseCustomers: 650, highValueCustomers: 1010, highChurnCustomers: 320, churnRisk: 3.8, density: 980, latitude: 31.9539, longitude: 35.9106, congestedCells: 3, nearestCongestedCellKm: 0.6, complaints: 128, ...overrides });
 
@@ -7,11 +7,11 @@ describe("customer intelligence analytics", () => {
   it("derives customer segments and proximity status without exceeding the base", () => {
     const area = buildCustomerArea(input());
     expect(area.consumerCustomers).toBe(7770);
-    expect(area.smeCustomers).toBeGreaterThan(0);
+    expect(area.smeCustomers).toBeNull();
     expect(area.nearCongestedCell).toBe(true);
     expect(area.customerImpact).toBeGreaterThan(0);
     expect(area.enterpriseCustomers).toBeLessThanOrEqual(area.customers);
-    expect(area.customerClusters.find(cluster => cluster.segment === "high_value")).toMatchObject({ customers: 1010, radiusMeters: 1000, nearCongestedCell: true });
+    expect(area.customerClusters).toEqual([]);
   });
 
   it("filters high-value customers within one kilometer of congested cells", () => {
@@ -27,13 +27,6 @@ describe("customer intelligence analytics", () => {
     expect(result.areas.find(area => area.name === "Irbid Central")).toMatchObject({ latitude: 32.5556, longitude: 35.8497 });
   });
 
-  it("creates a non-empty operational preview from site-level signals", () => {
-    const result = createPreviewCustomerOperations([{ id: "AMW-042", name: "Amman West", lat: 31.9539, lng: 35.9106, customers: 8420, complaints: 128, churn: 3.8, congestion: 94 }]);
-    expect(result.source).toBe("operational-preview");
-    expect(result.summary.totalCustomers).toBe(8420);
-    expect(result.areas[0]).toMatchObject({ name: "Amman West", nearCongestedCell: true });
-    expect(result.areas[0]?.customerClusters[0]).toMatchObject({ segment: "high_value", customers: 1010, nearCongestedCell: true });
-  });
 });
 
 const getPersistedCustomerOperations = vi.hoisted(() => vi.fn());
@@ -52,10 +45,4 @@ describe("customers.operations procedure", () => {
     expect(result.areas[0]).toHaveProperty("latitude");
   });
 
-  it("falls back to the operational preview when no persisted rows exist", async () => {
-    getPersistedCustomerOperations.mockResolvedValueOnce(null);
-    const result = await appRouter.createCaller(context()).customers.operations();
-    expect(result.source).toBe("operational-preview");
-    expect(result.areas.length).toBeGreaterThan(0);
-  });
 });

@@ -33,7 +33,7 @@ export type CustomerExperienceArea = CustomerExperienceAreaInput & {
 };
 
 export type CustomerExperienceOperations = {
-  source: "persisted" | "operational-preview";
+  source: "persisted";
   updatedAt: string;
   summary: {
     cxRisk: number;
@@ -120,30 +120,8 @@ export function assembleCustomerExperience(source: CustomerExperienceOperations[
     summary: { cxRisk, customerExperience: experience, churnRisk, customers: totalCustomers, impactedCustomers: areas.reduce((sum, area) => sum + area.impactedCustomers, 0), complaints, correlatedComplaints },
     areas,
     correlation,
-    trends: [
-      { label: "-28d", cxRisk: Number((cxRisk + 4.8).toFixed(1)), experience: Number((experience - 3.8).toFixed(1)), churnRisk: Number((churnRisk - 0.3).toFixed(1)) },
-      { label: "-21d", cxRisk: Number((cxRisk + 3.1).toFixed(1)), experience: Number((experience - 2.6).toFixed(1)), churnRisk: Number((churnRisk - 0.2).toFixed(1)) },
-      { label: "-14d", cxRisk: Number((cxRisk + 1.9).toFixed(1)), experience: Number((experience - 1.5).toFixed(1)), churnRisk: Number((churnRisk - 0.1).toFixed(1)) },
-      { label: "-7d", cxRisk: Number((cxRisk + 1.1).toFixed(1)), experience: Number((experience - 0.8).toFixed(1)), churnRisk },
-      { label: "Today", cxRisk, experience, churnRisk },
-    ],
+    // A historical trend is not available in the current source schema; do not synthesize one.
+    trends: [],
   };
 }
 
-export function createPreviewCustomerExperience(sites: Array<{ id: string; name: string; customers: number; complaints: number; churn: number; availability: number; congestion: number; throughput: number; fiber: number }>): CustomerExperienceOperations {
-  const inputs: CustomerExperienceAreaInput[] = sites.map(site => ({ id: site.id, name: site.name, region: site.name, customers: site.customers, complaints: site.complaints, churnRisk: site.churn, availability: site.availability, congestion: site.congestion, throughput: site.throughput, fiber: site.fiber, source: "operational-preview" }));
-  const result = assembleCustomerExperience("operational-preview", inputs);
-  const amman = result.areas.find(area => area.name === "Amman West");
-  if (amman) {
-    amman.cxRisk = 91;
-    amman.experienceScore = 34;
-    amman.severity = "critical";
-    amman.primaryIssue = "Congestion and complaint density are eroding the customer journey";
-    amman.factors = [
-      { label: "Network congestion", value: "94% congestion", impact: "high", detail: "Radio utilization is above the comfort zone for a consistent customer journey." },
-      { label: "Complaint density", value: "15.2 / 1k customers", impact: "high", detail: "Open complaints are correlated to the same service area." },
-      { label: "Churn propensity", value: "3.8% churn risk", impact: "medium", detail: "Customer risk is amplified when service friction persists." },
-    ];
-  }
-  return result;
-}

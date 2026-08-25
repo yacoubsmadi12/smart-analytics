@@ -7,9 +7,9 @@ export type InfrastructureRecord = {
   fiberAvailability: number;
   congestion: number;
   status: string;
-  backhaul: "fiber" | "microwave" | "mixed";
-  plannedUpgrade: boolean;
-  linkCount: number;
+  backhaul: "fiber" | "microwave" | "mixed" | "unknown";
+  plannedUpgrade: boolean | null;
+  linkCount: number | null;
 };
 
 export type FiberOpportunity = InfrastructureRecord & {
@@ -20,7 +20,7 @@ export type FiberOpportunity = InfrastructureRecord & {
 };
 
 export type InfrastructureOperations = {
-  source: "persisted" | "operational-preview";
+  source: "persisted";
   updatedAt: string;
   summary: {
     fiberNodes: number;
@@ -41,7 +41,7 @@ function numberValue(value: unknown, fallback = 0) { const number = Number(value
 export function scoreFiberOpportunity(record: Pick<InfrastructureRecord, "fiberAvailability" | "congestion" | "backhaul" | "plannedUpgrade">) {
   const availabilityGap = Math.max(0, 100 - numberValue(record.fiberAvailability));
   const backhaulPressure = record.backhaul === "microwave" ? 12 : record.backhaul === "mixed" ? 6 : 0;
-  const upgradeSignal = record.plannedUpgrade ? 6 : 0;
+  const upgradeSignal = record.plannedUpgrade === true ? 6 : 0;
   return Math.round(clamp(numberValue(record.congestion) * 0.72 + availabilityGap * 0.2 + backhaulPressure + upgradeSignal));
 }
 
@@ -60,10 +60,5 @@ export function assembleInfrastructureOperations(source: InfrastructureOperation
     const items = opportunities.filter(record => record.region === region);
     return { region, nodes: items.length, availability: Number((items.reduce((sum, item) => sum + item.fiberAvailability, 0) / Math.max(1, items.length)).toFixed(1)), congestion: Number((items.reduce((sum, item) => sum + item.congestion, 0) / Math.max(1, items.length)).toFixed(1)), opportunities: items.filter(item => item.recommendedAction === "Fiber Migration" || item.recommendedAction === "Fiber Build").length };
   }).sort((a, b) => b.opportunities - a.opportunities || b.congestion - a.congestion);
-  return { source, updatedAt, summary: { fiberNodes: opportunities.length, fiberLinks: opportunities.reduce((sum, item) => sum + item.linkCount, 0), fiberAvailability: Number((opportunities.reduce((sum, item) => sum + item.fiberAvailability, 0) / Math.max(1, opportunities.length)).toFixed(1)), backhaulAtRisk: opportunities.filter(item => item.backhaul !== "fiber" && item.congestion >= 70).length, microwaveSites: opportunities.filter(item => item.backhaul === "microwave" || item.backhaul === "mixed").length, plannedUpgrades: opportunities.filter(item => item.plannedUpgrade).length, migrationOpportunities: opportunities.filter(item => item.recommendedAction === "Fiber Migration").length }, opportunities, regions };
-}
-
-export function createPreviewInfrastructureOperations(sites: Array<{ id: string; name: string; lat: number; lng: number; fiber: number; congestion: number; status: string }>): InfrastructureOperations {
-  const records: InfrastructureRecord[] = sites.map((site, index) => ({ id: `INF-${String(index + 1).padStart(3, "0")}`, nodeCode: `FN-${String(204 + index * 37).padStart(3, "0")}`, region: site.name, latitude: site.lat, longitude: site.lng, fiberAvailability: site.fiber, congestion: site.congestion, status: site.status, backhaul: site.fiber >= 85 ? "mixed" : "microwave", plannedUpgrade: site.congestion >= 70, linkCount: Math.max(1, Math.round(site.fiber / 30)) }));
-  return assembleInfrastructureOperations("operational-preview", records);
+  return { source, updatedAt, summary: { fiberNodes: opportunities.length, fiberLinks: opportunities.reduce((sum, item) => sum + (item.linkCount ?? 0), 0), fiberAvailability: Number((opportunities.reduce((sum, item) => sum + item.fiberAvailability, 0) / Math.max(1, opportunities.length)).toFixed(1)), backhaulAtRisk: opportunities.filter(item => item.backhaul !== "fiber" && item.congestion >= 70).length, microwaveSites: opportunities.filter(item => item.backhaul === "microwave" || item.backhaul === "mixed").length, plannedUpgrades: opportunities.filter(item => item.plannedUpgrade === true).length, migrationOpportunities: opportunities.filter(item => item.recommendedAction === "Fiber Migration").length }, regions, opportunities };
 }

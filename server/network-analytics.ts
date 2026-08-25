@@ -35,7 +35,7 @@ export type NetworkSite = {
 };
 
 export type NetworkOperations = {
-  source: "persisted" | "operational-preview";
+  source: "persisted";
   updatedAt: string;
   summary: {
     sites: number;
@@ -91,45 +91,6 @@ export function rankWorstCells(cells: NetworkCell[], limit = 10): NetworkCell[] 
     .slice(0, limit);
 }
 
-export function createPreviewNetworkOperations(sites: NetworkPreviewSite[]): NetworkOperations {
-  const cells: NetworkCell[] = sites.flatMap(site => {
-    const fourG = Math.max(1, site.cells4g);
-    const fiveG = Math.max(1, site.cells5g);
-    const twoG = Math.max(1, Math.round(fourG * 0.18));
-    const threeG = Math.max(1, Math.round(fourG * 0.28));
-    const technologyCounts: Array<[NetworkTechnology, number, number]> = [
-      ["2G", twoG, 0.91],
-      ["3G", threeG, 0.94],
-      ["4G", fourG, 1],
-      ["5G", fiveG, 1.04],
-    ];
-    const total = technologyCounts.reduce((sum, [, count]) => sum + count, 0);
-    return technologyCounts.flatMap(([technology, count, multiplier]) => Array.from({ length: count }, (_, index) => {
-      const congestion = Math.max(18, Math.min(99, site.congestion + (index % 5 - 2) * 3 + (technology === "4G" ? 2 : technology === "5G" ? -6 : 4)));
-      const availability = Math.max(86, Math.min(99.9, site.availability - (index % 4) * 0.35 - (technology === "2G" ? 0.6 : 0)));
-      const throughput = Math.max(8, Number((site.throughput * multiplier * (1 - Math.min(congestion, 95) / 260)).toFixed(1)));
-      const impactedCustomers = Math.max(1, Math.round(site.customers / total * (1 + congestion / 180)));
-      const complaints = Math.max(0, Math.round(site.complaints / total * (1 + congestion / 150)));
-      return {
-        cellCode: `${site.id}-${technology}-${String(index + 1).padStart(2, "0")}`,
-        siteId: site.id,
-        siteName: site.name,
-        technology,
-        availability: Number(availability.toFixed(1)),
-        traffic: Number((site.traffic / total).toFixed(3)),
-        congestion: Number(congestion.toFixed(1)),
-        throughput,
-        coverage: Number(Math.max(72, site.fiber - (technology === "5G" ? 8 : 0)).toFixed(1)),
-        impactedCustomers,
-        complaints,
-        fiber: site.fiber,
-        reason: networkReason(availability, congestion, throughput),
-        status: networkStatus(availability, congestion),
-      } satisfies NetworkCell;
-    }));
-  });
-  return assembleNetworkOperations("operational-preview", cells);
-}
 
 export function assembleNetworkOperations(source: NetworkOperations["source"], cells: NetworkCell[], updatedAt = new Date().toISOString()): NetworkOperations {
   const sites = Array.from(new Map(cells.map(cell => [cell.siteId, cell])).values()).map(firstCell => {
@@ -178,12 +139,7 @@ export function assembleNetworkOperations(source: NetworkOperations["source"], c
     technology: technologies,
     sites,
     cells,
-    trends: [
-      { label: "06:00", availability: Math.max(0, avg(cell => cell.availability) - 1.2), congestion: avg(cell => cell.congestion) + 4, throughput: Math.max(0, avg(cell => cell.throughput) - 4) },
-      { label: "10:00", availability: Math.max(0, avg(cell => cell.availability) - 0.6), congestion: avg(cell => cell.congestion) + 2, throughput: Math.max(0, avg(cell => cell.throughput) - 2) },
-      { label: "14:00", availability: avg(cell => cell.availability), congestion: avg(cell => cell.congestion), throughput: avg(cell => cell.throughput) },
-      { label: "18:00", availability: Math.min(100, avg(cell => cell.availability) + 0.3), congestion: Math.max(0, avg(cell => cell.congestion) - 1), throughput: avg(cell => cell.throughput) + 1.5 },
-      { label: "Now", availability: Math.min(100, avg(cell => cell.availability) + 0.5), congestion: Math.max(0, avg(cell => cell.congestion) - 1.8), throughput: avg(cell => cell.throughput) + 2.2 },
-    ],
+    // Historical time buckets are not present in the current KPI source; do not synthesize a trend.
+    trends: [],
   };
 }

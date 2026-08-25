@@ -60,6 +60,68 @@ export async function getPersistedDashboardSummary() {
   return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : null;
 }
 
+export async function getPersistedMapSites() {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    const [siteRows, cellRows, kpiRows, complaintRows, customerRows, fiberRows, salesRows, revenueRows] = await Promise.all([
+      db.select().from(sites),
+      db.select({ siteId: cells.siteId, technology: cells.technology, availability: cells.availability, congestion: cells.congestion, throughput: cells.throughput }).from(cells),
+      db.select({ siteId: networkKpis.siteId, availability: networkKpis.availability, traffic: networkKpis.trafficTb, congestion: networkKpis.congestion, throughput: networkKpis.throughputMbps }).from(networkKpis).orderBy(desc(networkKpis.recordedAt)),
+      db.select({ siteId: complaints.siteId, total: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`).groupBy(complaints.siteId),
+      db.select({ region: customers.region, churnRisk: customers.churnRisk, total: sql<number>`count(*)` }).from(customers).groupBy(customers.region, customers.churnRisk),
+      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
+      db.select({ region: salesOpportunities.region, total: sql<number>`count(*)` }).from(salesOpportunities).groupBy(salesOpportunities.region),
+      db.select({ region: revenues.region, atRisk: sql<string>`sum(${revenues.atRisk})` }).from(revenues).groupBy(revenues.region),
+    ]);
+    if (!siteRows.length) return null;
+    const numberValue = (value: unknown) => Number(value ?? 0);
+    const average = (values: unknown[]) => values.length ? values.reduce<number>((sum, value) => sum + numberValue(value), 0) / values.length : 0;
+    const complaintsBySite = new Map(complaintRows.filter(row => row.siteId !== null).map(row => [row.siteId as number, numberValue(row.total)]));
+    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped region", numberValue(row.availability)]));
+    const salesByRegion = new Map(salesRows.map(row => [row.region ?? "Unmapped region", numberValue(row.total)]));
+    const revenueByRegion = new Map(revenueRows.map(row => [row.region ?? "Unmapped region", numberValue(row.atRisk)]));
+    const customersByRegion = new Map<string, { total: number; churnRisk: number[] }>();
+    for (const row of customerRows) {
+      const key = row.region ?? "Unmapped region";
+      const current = customersByRegion.get(key) ?? { total: 0, churnRisk: [] };
+      current.total += numberValue(row.total);
+      current.churnRisk.push(numberValue(row.churnRisk));
+      customersByRegion.set(key, current);
+    }
+    return siteRows.map(site => {
+      const region = site.region ?? site.name;
+      const siteCells = cellRows.filter(row => row.siteId === site.id);
+      const siteKpis = kpiRows.filter(row => row.siteId === site.id).slice(0, 12);
+      const metrics = siteKpis.length ? siteKpis : siteCells;
+      const customerData = customersByRegion.get(region) ?? { total: 0, churnRisk: [] };
+      const status = site.status === "degraded" ? "warning" : site.status;
+      return {
+        id: site.siteCode,
+        name: site.name,
+        lat: numberValue(site.latitude),
+        lng: numberValue(site.longitude),
+        status,
+        availability: average(metrics.map(row => row.availability)),
+        traffic: average(siteKpis.map(row => row.traffic)),
+        congestion: average(metrics.map(row => row.congestion)),
+        cells4g: siteCells.filter(row => row.technology === "4G").length,
+        cells5g: siteCells.filter(row => row.technology === "5G").length,
+        customers: customerData.total,
+        complaints: complaintsBySite.get(site.id) ?? 0,
+        churn: average(customerData.churnRisk),
+        fiber: fiberByRegion.get(region) ?? 0,
+        salesOpportunities: salesByRegion.get(region) ?? 0,
+        revenueRisk: revenueByRegion.get(region) ?? 0,
+        throughput: average(metrics.map(row => row.throughput)),
+      } as const;
+    });
+  } catch (error) {
+    console.warn("[Database] Map sites query unavailable:", error);
+    return null;
+  }
+}
+
 export async function getPersistedNetworkOperations() {
   const db = await getDb();
   if (!db) return null;
@@ -138,16 +200,25 @@ export async function getPersistedCustomerExperience() {
       db.select({ region: sites.region, availability: sql<string>`avg(${networkKpis.availability})`, congestion: sql<string>`avg(${networkKpis.congestion})`, throughput: sql<string>`avg(${networkKpis.throughputMbps})` }).from(networkKpis).leftJoin(sites, eq(networkKpis.siteId, sites.id)).groupBy(sites.region),
       db.select({ region: fiberInfrastructure.region, fiber: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
-    if (!customerRows.length && !complaintRows.length && !kpiRows.length) return null;
-    const numberValue = (value: unknown, fallback = 0) => Number(value ?? fallback);
+    if (!customerRows.length || !kpiRows.length) return null;
+    const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };
     const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
-    const kpiByRegion = new Map(kpiRows.map(row => [row.region ?? "Unmapped", { availability: numberValue(row.availability, 98), congestion: numberValue(row.congestion, 35), throughput: numberValue(row.throughput, 45) }]));
-    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped", numberValue(row.fiber, 80)]));
-    const regions = Array.from(new Set([...customerRows.map(row => row.region ?? "Unmapped"), ...complaintRows.map(row => row.region ?? "Unmapped"), ...kpiRows.map(row => row.region ?? "Unmapped")]));
-    const inputs: CustomerExperienceAreaInput[] = regions.map((region, index) => {
+    const kpiByRegion = new Map(kpiRows.flatMap(row => {
+      const availability = Number(row.availability);
+      const congestion = Number(row.congestion);
+      const throughput = Number(row.throughput);
+      return row.region && [availability, congestion, throughput].every(Number.isFinite) ? [[row.region, { availability, congestion, throughput }] as const] : [];
+    }));
+    const fiberByRegion = new Map(fiberRows.flatMap(row => {
+      const fiber = Number(row.fiber);
+      return row.region && Number.isFinite(fiber) ? [[row.region, fiber] as const] : [];
+    }));
+    const regions = Array.from(new Set(customerRows.map(row => row.region ?? "Unmapped"))).filter(region => kpiByRegion.has(region));
+    const inputs: CustomerExperienceAreaInput[] = regions.flatMap(region => {
       const customerRow = customerRows.find(row => (row.region ?? "Unmapped") === region);
-      const kpi = kpiByRegion.get(region) ?? { availability: 98, congestion: 35, throughput: 45 };
-      return { id: `CX-${String(index + 1).padStart(3, "0")}`, name: region, region, customers: numberValue(customerRow?.customers), complaints: complaintByRegion.get(region) ?? 0, churnRisk: numberValue(customerRow?.churnRisk), availability: kpi.availability, congestion: kpi.congestion, throughput: kpi.throughput, fiber: fiberByRegion.get(region) ?? null, source: "persisted" };
+      const kpi = kpiByRegion.get(region);
+      if (!customerRow || !kpi) return [];
+      return [{ id: region, name: region, region, customers: numberValue(customerRow.customers), complaints: complaintByRegion.get(region) ?? 0, churnRisk: numberValue(customerRow.churnRisk), availability: kpi.availability, congestion: kpi.congestion, throughput: kpi.throughput, fiber: fiberByRegion.get(region) ?? null, source: "persisted" }];
     });
     return assembleCustomerExperience("persisted", inputs);
   } catch (error) {
@@ -166,17 +237,22 @@ export async function getPersistedCustomerOperations() {
       db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
       db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
     ]);
-    if (!customerRows.length && !siteRows.length) return null;
-    const numberValue = (value: unknown, fallback = 0) => Number(value ?? fallback);
+    if (!customerRows.length || !siteRows.length) return null;
+    const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };
     const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
-    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, numberValue(row.congestion)]));
-    const regions = Array.from(new Set([...customerRows.map(row => row.region ?? "Unmapped"), ...siteRows.map(row => row.region ?? row.name ?? "Unmapped")]));
-    const inputs: CustomerAreaInput[] = regions.map((region, index) => {
-      const customerRow = customerRows.find(row => (row.region ?? "Unmapped") === region);
+    const kpiBySite = new Map(kpiRows.flatMap(row => {
+      const congestion = Number(row.congestion);
+      return Number.isFinite(congestion) ? [[row.siteId, congestion] as const] : [];
+    }));
+    const inputs: CustomerAreaInput[] = customerRows.flatMap(customerRow => {
+      const region = customerRow.region ?? "Unmapped";
       const regionSite = siteRows.find(site => (site.region ?? site.name ?? "Unmapped") === region);
       const regionSites = siteRows.filter(site => (site.region ?? site.name ?? "Unmapped") === region);
-      const congestedCells = regionSites.reduce((sum, site) => sum + (kpiBySite.get(site.id) ?? 0 >= 70 ? 1 : 0), 0);
-      return { id: regionSite?.siteCode ?? `CUST-${String(index + 1).padStart(3, "0")}`, name: regionSite?.name ?? region, region, customers: numberValue(customerRow?.customers), enterpriseCustomers: numberValue(customerRow?.enterpriseCustomers), highValueCustomers: numberValue(customerRow?.highValueCustomers), highChurnCustomers: numberValue(customerRow?.highChurnCustomers), churnRisk: numberValue(customerRow?.churnRisk), density: Math.round(numberValue(customerRow?.customers) / Math.max(1, regionSites.length * 10)), latitude: Number(regionSite?.latitude ?? 31.95), longitude: Number(regionSite?.longitude ?? 35.91), congestedCells, nearestCongestedCellKm: congestedCells > 0 ? 0.8 : null, complaints: complaintByRegion.get(region) ?? 0, source: "persisted" };
+      const latitude = regionSite ? Number(regionSite.latitude) : NaN;
+      const longitude = regionSite ? Number(regionSite.longitude) : NaN;
+      if (!regionSite?.siteCode || !Number.isFinite(latitude) || !Number.isFinite(longitude) || customerRow.customers === null) return [];
+      const congestedCells = regionSites.reduce((sum, site) => sum + ((kpiBySite.get(site.id) ?? 0) >= 70 ? 1 : 0), 0);
+      return [{ id: regionSite.siteCode, name: regionSite.name, region, customers: numberValue(customerRow.customers), enterpriseCustomers: numberValue(customerRow.enterpriseCustomers), highValueCustomers: numberValue(customerRow.highValueCustomers), highChurnCustomers: numberValue(customerRow.highChurnCustomers), churnRisk: numberValue(customerRow.churnRisk), density: null, latitude, longitude, congestedCells, nearestCongestedCellKm: null, complaints: complaintByRegion.get(region) ?? 0, source: "persisted" }];
     });
     return assembleCustomerOperations("persisted", inputs);
   } catch (error) {
@@ -205,6 +281,8 @@ export async function getPersistedComplaintOperations() {
       const category = complaint.category || "Uncategorized";
       const networkRelated = isNetworkComplaint(category) || worstCells.length > 0;
       const region = site?.region ?? customer?.region ?? site?.name ?? "Unmapped region";
+      const latitude = site?.latitude === null || site?.latitude === undefined ? null : numberValue(site.latitude);
+      const longitude = site?.longitude === null || site?.longitude === undefined ? null : numberValue(site.longitude);
       return {
         id: String(complaint.id),
         category,
@@ -213,8 +291,8 @@ export async function getPersistedComplaintOperations() {
         count: 1,
         region,
         siteId: complaint.siteId ? String(complaint.siteId) : null,
-        latitude: numberValue(site?.latitude) || 31.95,
-        longitude: numberValue(site?.longitude) || 35.91,
+        latitude: latitude !== null && Number.isFinite(latitude) ? latitude : null,
+        longitude: longitude !== null && Number.isFinite(longitude) ? longitude : null,
         networkRelated,
         coveredWorstCellCount: networkRelated && worstCells.length ? 1 : 0,
         worstCellCodes: worstCells.slice(0, 3),
@@ -591,23 +669,28 @@ export async function getPersistedInfrastructureOperations() {
       db.select({ siteId: cells.siteId, congestion: cells.congestion }).from(cells),
     ]);
     if (!fiberRows.length) return null;
-    const numberValue = (value: unknown, fallback = 0) => { const number = Number(value); return Number.isFinite(number) ? number : fallback; };
+    const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : null; };
     const congestionByRegion = new Map<string, number[]>();
     cellRows.forEach(row => {
+      const congestion = numberValue(row.congestion);
       const site = siteRows.find(item => item.id === row.siteId);
-      const region = site?.region ?? site?.name ?? "Unmapped region";
+      const region = site?.region ?? site?.name;
+      if (!region || congestion === null) return;
       const values = congestionByRegion.get(region) ?? [];
-      values.push(numberValue(row.congestion));
+      values.push(congestion);
       congestionByRegion.set(region, values);
     });
-    const records = fiberRows.map((row, index) => {
-      const region = row.region ?? "Unmapped region";
-      const regionSites = siteRows.filter(site => (site.region ?? site.name ?? "Unmapped region") === region);
-      const site = regionSites[index % Math.max(1, regionSites.length)];
-      const congestionValues = congestionByRegion.get(region) ?? [];
-      const congestion = congestionValues.length ? congestionValues.reduce((sum, value) => sum + value, 0) / congestionValues.length : 35;
-      const fiberAvailability = numberValue(row.availability, 0);
-      return { id: String(row.id), nodeCode: row.nodeCode, region, latitude: numberValue(row.latitude ?? site?.latitude, 31.95), longitude: numberValue(row.longitude ?? site?.longitude, 35.91), fiberAvailability, congestion, status: row.status ?? "healthy", backhaul: fiberAvailability >= 95 ? "fiber" : fiberAvailability >= 80 ? "mixed" : "microwave", plannedUpgrade: congestion >= 70 || fiberAvailability < 85, linkCount: Math.max(1, regionSites.length || 1) } as const;
+    const records = fiberRows.flatMap((row) => {
+      const region = row.region;
+      const regionSites = region ? siteRows.filter(site => (site.region ?? site.name) === region) : [];
+      const site = regionSites[0];
+      const latitude = numberValue(row.latitude ?? site?.latitude);
+      const longitude = numberValue(row.longitude ?? site?.longitude);
+      const congestionValues = region ? congestionByRegion.get(region) ?? [] : [];
+      const congestion = congestionValues.length ? congestionValues.reduce((sum, value) => sum + value, 0) / congestionValues.length : null;
+      const fiberAvailability = numberValue(row.availability);
+      if (!region || latitude === null || longitude === null || congestion === null || fiberAvailability === null) return [];
+      return [{ id: String(row.id), nodeCode: row.nodeCode, region, latitude, longitude, fiberAvailability, congestion, status: row.status ?? "Unknown", backhaul: "unknown" as const, plannedUpgrade: null, linkCount: null }];
     });
     return assembleInfrastructureOperations("persisted", records);
   } catch (error) {
@@ -629,16 +712,25 @@ export async function getPersistedSalesOperations() {
       db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
     if (!opportunityRows.length) return null;
-    const numberValue = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
-    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, numberValue(row.congestion, 35)]));
-    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped region", numberValue(row.availability, 80)]));
-    const inputs = opportunityRows.map((opportunity, index) => {
+    const numberValue = (value: unknown) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
+    const kpiBySite = new Map(kpiRows.flatMap(row => {
+      const congestion = numberValue(row.congestion);
+      return congestion === null ? [] : [[row.siteId, congestion] as const];
+    }));
+    const fiberByRegion = new Map(fiberRows.flatMap(row => {
+      const availability = numberValue(row.availability);
+      return row.region && availability !== null ? [[row.region, availability] as const] : [];
+    }));
+    const inputs = opportunityRows.flatMap(opportunity => {
       const customer = customerRows.find(item => item.id === opportunity.customerId);
-      const region = opportunity.region ?? "Unmapped region";
-      const site = siteRows.find(item => (item.region ?? item.name) === region) ?? siteRows[index % Math.max(1, siteRows.length)];
-      const congestion = site ? numberValue(kpiBySite.get(site.id), 35) : 35;
-      const fiberReadiness = numberValue(fiberByRegion.get(region), 80);
-      return { id: String(opportunity.id), accountName: customer?.externalRef ?? `Account ${opportunity.id}`, region, latitude: numberValue(site?.latitude, 31.95), longitude: numberValue(site?.longitude, 35.91), stage: opportunity.stage ?? "Qualified", value: numberValue(opportunity.value), probability: numberValue(opportunity.probability), enterprise: customer?.segment === "enterprise", customerSegment: customer?.segment ?? "high_value", networkReadiness: Math.max(0, 100 - congestion), fiberReadiness, siteName: site?.name ?? region } as const;
+      const region = opportunity.region;
+      const site = region ? siteRows.find(item => (item.region ?? item.name) === region) : undefined;
+      const congestion = site ? kpiBySite.get(site.id) : undefined;
+      const fiberReadiness = region ? fiberByRegion.get(region) : undefined;
+      const latitude = site ? numberValue(site.latitude) : null;
+      const longitude = site ? numberValue(site.longitude) : null;
+      if (!customer || !region || !site || congestion === undefined || fiberReadiness === undefined || latitude === null || longitude === null) return [];
+      return [{ id: String(opportunity.id), accountName: customer.externalRef, region, latitude, longitude, stage: opportunity.stage ?? "Unmapped stage", value: numberValue(opportunity.value) ?? 0, probability: numberValue(opportunity.probability) ?? 0, enterprise: customer.segment === "enterprise", customerSegment: customer.segment, networkReadiness: Math.max(0, 100 - congestion), fiberReadiness, siteName: site.name }];
     });
     return assembleSalesOperations("persisted", inputs);
   } catch (error) {
@@ -661,21 +753,25 @@ export async function getPersistedMarketingOperations() {
       db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
     if (!campaignRows.length) return null;
-    const numberValue = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
+    const numberValue = (value: unknown) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
     const customersByRegion = new Map<string, typeof customerRows>();
-    for (const customer of customerRows) { const key = customer.region ?? "Unmapped region"; customersByRegion.set(key, [...(customersByRegion.get(key) ?? []), customer]); }
+    for (const customer of customerRows) { if (!customer.region) continue; customersByRegion.set(customer.region, [...(customersByRegion.get(customer.region) ?? []), customer]); }
     const complaintsBySite = new Map<number, number>();
     for (const complaint of complaintRows) if (complaint.siteId) complaintsBySite.set(complaint.siteId, (complaintsBySite.get(complaint.siteId) ?? 0) + 1);
-    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, numberValue(row.congestion, 35)]));
-    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped region", numberValue(row.availability, 80)]));
-    const inputs = campaignRows.map((campaign, index) => {
-      const region = campaign.region ?? "Unmapped region";
-      const site = siteRows.find(item => (item.region ?? item.name) === region) ?? siteRows[index % Math.max(1, siteRows.length)];
-      const regionalCustomers = customersByRegion.get(region) ?? [];
-      const avgChurn = regionalCustomers.length ? regionalCustomers.reduce((sum, item) => sum + numberValue(item.churnRisk), 0) / regionalCustomers.length : 0;
-      const complaintCount = site ? complaintsBySite.get(site.id) ?? 0 : 0;
-      const congestion = site ? numberValue(kpiBySite.get(site.id), 35) : 35;
-      return { id: String(campaign.id), name: campaign.name, region, status: campaign.status ?? "Planned", budget: numberValue(campaign.budget), conversionRate: numberValue(campaign.conversionRate), targetArea: region, marketPotential: Math.min(99, Math.round(45 + regionalCustomers.length / 10)), fiveGPotential: Math.min(100, Math.round(45 + (site ? 4 : 0) * 8)), customerSegment: regionalCustomers[0]?.segment ?? "consumer", churnRisk: avgChurn, complaintRate: regionalCustomers.length ? Number((complaintCount / regionalCustomers.length * 1000).toFixed(1)) : 0, networkReadiness: Math.max(0, 100 - congestion), fiberReadiness: numberValue(fiberByRegion.get(region), 80) } as const;
+    const kpiBySite = new Map(kpiRows.flatMap(row => { const congestion = numberValue(row.congestion); return congestion === null ? [] : [[row.siteId, congestion] as const]; }));
+    const fiberByRegion = new Map(fiberRows.flatMap(row => { const availability = numberValue(row.availability); return row.region && availability !== null ? [[row.region, availability] as const] : []; }));
+    const inputs = campaignRows.flatMap(campaign => {
+      const region = campaign.region;
+      const site = region ? siteRows.find(item => (item.region ?? item.name) === region) : undefined;
+      const regionalCustomers = region ? customersByRegion.get(region) ?? [] : [];
+      const congestion = site ? kpiBySite.get(site.id) : undefined;
+      const latitude = site ? numberValue(site.latitude) : null;
+      const longitude = site ? numberValue(site.longitude) : null;
+      if (!region || !site || !regionalCustomers.length || congestion === undefined || latitude === null || longitude === null) return [];
+      const churnValues = regionalCustomers.flatMap(item => { const value = numberValue(item.churnRisk); return value === null ? [] : [value]; });
+      const avgChurn = churnValues.length ? Number((churnValues.reduce((sum, value) => sum + value, 0) / churnValues.length).toFixed(1)) : null;
+      const complaintCount = complaintsBySite.get(site.id) ?? 0;
+      return [{ id: String(campaign.id), name: campaign.name, region, status: campaign.status ?? "Unmapped status", budget: numberValue(campaign.budget) ?? 0, conversionRate: numberValue(campaign.conversionRate) ?? 0, targetArea: region, marketPotential: null, fiveGPotential: null, customerSegment: regionalCustomers[0]?.segment ?? "unknown", churnRisk: avgChurn, complaintRate: Number((complaintCount / regionalCustomers.length * 1000).toFixed(1)), networkReadiness: Math.max(0, 100 - congestion), fiberReadiness: fiberByRegion.get(region) ?? null }];
     });
     return assembleMarketingOperations("persisted", inputs);
   } catch (error) {
@@ -703,19 +799,20 @@ export async function getPersistedBusinessRevenueOperations() {
     for (const customer of customerRows) { const key = customer.region ?? "Unmapped region"; customersByRegion.set(key, [...(customersByRegion.get(key) ?? []), customer]); }
     const complaintBySite = new Map<number, number>();
     for (const complaint of complaintRows) if (complaint.siteId) complaintBySite.set(complaint.siteId, (complaintBySite.get(complaint.siteId) ?? 0) + 1);
-    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, num(row.congestion, 35)]));
+    const kpiBySite = new Map(kpiRows.flatMap(row => { const congestion = Number(row.congestion); return Number.isFinite(congestion) ? [[row.siteId, congestion] as const] : []; }));
     const pipelineByRegion = new Map(salesRows.map(row => [row.region ?? "Unmapped region", num(row.value)]));
-    const inputs = revenueRows.map((row, index) => {
+    const inputs = revenueRows.flatMap(row => {
       const region = row.region ?? "Unmapped region";
-      const site = siteRows.find(item => (item.region ?? item.name) === region) ?? siteRows[index % Math.max(1, siteRows.length)];
+      if (row.atRisk === null) return [];
+      const site = siteRows.find(item => (item.region ?? item.name) === region);
       const regionalCustomers = customersByRegion.get(region) ?? [];
       const customersAtRisk = regionalCustomers.filter(item => num(item.churnRisk) >= 6).length;
       const enterpriseImpact = regionalCustomers.filter(item => item.segment === "enterprise").length;
-      const congestion = site ? num(kpiBySite.get(site.id), 35) : 35;
-      const networkIssue = congestion >= 70;
+      const congestion = site ? kpiBySite.get(site.id) : undefined;
+      const networkIssue = congestion === undefined ? null : congestion >= 70;
       const revenueAtRisk = num(row.atRisk);
       const salesPipeline = num(pipelineByRegion.get(region));
-      return { id: String(row.id), region, period: row.period, revenueAtRisk, customersAtRisk, enterpriseImpact, salesPipeline, revenueOpportunity: Math.round(salesPipeline * (networkIssue ? 0.35 : 0.62)), investmentOpportunity: networkIssue ? Math.round(revenueAtRisk * 0.6) : Math.round(revenueAtRisk * 0.12), networkHealth: Math.max(0, 100 - congestion), networkIssue, action: networkIssue ? "Network remediation" : "Protect and grow", status: networkIssue ? "Urgent" : "Opportunity" };
+      return [{ id: String(row.id), region, period: row.period, revenueAtRisk, customersAtRisk, enterpriseImpact, salesPipeline, revenueOpportunity: null, investmentOpportunity: null, networkHealth: congestion === undefined ? null : Math.max(0, 100 - congestion), networkIssue, action: networkIssue === true ? "Network remediation" : networkIssue === null ? "Network linkage unavailable" : "Protect and grow", status: networkIssue === true ? "Urgent" : networkIssue === null ? "Unmapped" : "Opportunity" }];
     });
     return assembleBusinessRevenueOperations("persisted", inputs);
   } catch (error) {
@@ -740,7 +837,11 @@ export async function getPersistedPrioritiesOperations() {
     ]);
     if (!siteRows.length) return null;
     const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
-    const kpiBySite = new Map(kpiRows.map(row => [row.siteId, { congestion: num(row.congestion, 35), throughput: num(row.throughput, 0) }]));
+    const kpiBySite = new Map(kpiRows.flatMap(row => {
+      const congestion = Number(row.congestion);
+      const throughput = Number(row.throughput);
+      return Number.isFinite(congestion) && Number.isFinite(throughput) ? [[row.siteId, { congestion, throughput }] as const] : [];
+    }));
     const customersByRegion = new Map<string, number>();
     for (const row of customerRows) { const key = row.region ?? "Unmapped region"; if (num(row.churnRisk) >= 6) customersByRegion.set(key, (customersByRegion.get(key) ?? 0) + 1); }
     const complaintsBySite = new Map<number, number>();
@@ -753,16 +854,17 @@ export async function getPersistedPrioritiesOperations() {
     for (const row of fiberRows) { const key = row.region ?? "Unmapped region"; fiberByRegion.set(key, Math.max(fiberByRegion.get(key) ?? 0, num(row.availability, 0))); }
     const inputs = siteRows.flatMap(site => {
       const region = site.region ?? site.name;
-      const kpi = kpiBySite.get(site.id) ?? { congestion: 35, throughput: 0 };
+      const kpi = kpiBySite.get(site.id);
+      if (!kpi) return [];
       const revenueRisk = revenueByRegion.get(region) ?? 0;
       const affectedCustomers = customersByRegion.get(region) ?? 0;
       const complaintCount = complaintsBySite.get(site.id) ?? 0;
-      const fiber = fiberByRegion.get(region) ?? 70;
+      const fiber = fiberByRegion.get(region);
       const networkHealth = Math.max(0, 100 - kpi.congestion);
       const items = [] as PriorityInput[];
-      if (kpi.congestion >= 70) items.push({ id: `${site.id}-congestion`, region, issue: "4G congestion", category: "network", score: Math.round(kpi.congestion), severity: kpi.congestion >= 85 ? "critical" : "high", affectedCustomers: Math.max(affectedCustomers, Math.round(kpi.congestion * 8)), revenueRisk, salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Capacity Upgrade", rationale: `${Math.round(kpi.congestion)}% congestion is reducing available headroom.` });
-      if (fiber < 80) items.push({ id: `${site.id}-backhaul`, region, issue: "Poor backhaul", category: "fiber", score: Math.round(100 - fiber), severity: fiber < 65 ? "high" : "medium", affectedCustomers: Math.max(affectedCustomers, 80), revenueRisk: Math.round(revenueRisk * 0.55), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Fiber Migration", rationale: `${Math.round(fiber)}% fiber readiness leaves the site exposed to backhaul pressure.` });
-      if (complaintCount >= 3) items.push({ id: `${site.id}-complaints`, region, issue: "High complaints", category: "customer", score: Math.min(100, complaintCount * 8), severity: complaintCount >= 10 ? "high" : "medium", affectedCustomers: Math.max(affectedCustomers, complaintCount * 12), revenueRisk: Math.round(revenueRisk * 0.42), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Network Investigation", rationale: `${complaintCount} open complaints are concentrated around this site.` });
+      if (kpi.congestion >= 70) items.push({ id: `${site.id}-congestion`, region, issue: "4G congestion", category: "network", score: Math.round(kpi.congestion), severity: kpi.congestion >= 85 ? "critical" : "high", affectedCustomers, revenueRisk, salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Capacity Upgrade", rationale: `${Math.round(kpi.congestion)}% congestion is reducing available headroom.` });
+      if (fiber !== undefined && fiber < 80) items.push({ id: `${site.id}-backhaul`, region, issue: "Poor backhaul", category: "fiber", score: Math.round(100 - fiber), severity: fiber < 65 ? "high" : "medium", affectedCustomers, revenueRisk: Math.round(revenueRisk * 0.55), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Fiber Migration", rationale: `${Math.round(fiber)}% fiber readiness leaves the site exposed to backhaul pressure.` });
+      if (complaintCount >= 3) items.push({ id: `${site.id}-complaints`, region, issue: "High complaints", category: "customer", score: Math.min(100, complaintCount * 8), severity: complaintCount >= 10 ? "high" : "medium", affectedCustomers, revenueRisk: Math.round(revenueRisk * 0.42), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Network Investigation", rationale: `${complaintCount} open complaints are concentrated around this site.` });
       return items;
     });
     return inputs.length ? assemblePrioritiesOperations("persisted", inputs) : null;

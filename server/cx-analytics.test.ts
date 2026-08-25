@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assembleCustomerExperience, buildCustomerExperienceArea, calculateCxRisk, createPreviewCustomerExperience, rankCxAreas, type CustomerExperienceAreaInput } from "./cx-analytics";
+import { assembleCustomerExperience, buildCustomerExperienceArea, calculateCxRisk, rankCxAreas, type CustomerExperienceAreaInput } from "./cx-analytics";
 
 const area = (overrides: Partial<CustomerExperienceAreaInput> = {}): CustomerExperienceAreaInput => ({ id: "AMW-042", name: "Amman West", region: "Amman West", customers: 8420, complaints: 128, churnRisk: 3.8, availability: 98.6, congestion: 94, throughput: 42.8, fiber: 92, ...overrides });
 
@@ -26,14 +26,6 @@ describe("customer experience analytics", () => {
     expect(result.correlation).toHaveLength(2);
   });
 
-  it("keeps Amman West at the requested 91/100 preview risk and includes all areas", () => {
-    const result = createPreviewCustomerExperience([
-      { id: "AMW-042", name: "Amman West", customers: 8420, complaints: 128, churn: 3.8, availability: 98.6, congestion: 94, throughput: 42.8, fiber: 92 },
-      { id: "AQ-019", name: "Aqaba Coast", customers: 2980, complaints: 22, churn: 2.2, availability: 99.2, congestion: 44, throughput: 51.4, fiber: 96 },
-    ]);
-    expect(result.areas).toHaveLength(2);
-    expect(result.areas.find(item => item.name === "Amman West")).toMatchObject({ cxRisk: 91, severity: "critical" });
-  });
 });
 
 const getPersistedCustomerExperience = vi.hoisted(() => vi.fn());
@@ -53,10 +45,4 @@ describe("customerExperience.operations procedure", () => {
     expect(result.areas[0]).toHaveProperty("factors");
   });
 
-  it("uses the operational preview when persisted CX data is unavailable", async () => {
-    getPersistedCustomerExperience.mockResolvedValueOnce(null);
-    const result = await appRouter.createCaller(context()).customerExperience.operations();
-    expect(result.source).toBe("operational-preview");
-    expect(result.areas.length).toBeGreaterThan(0);
-  });
 });

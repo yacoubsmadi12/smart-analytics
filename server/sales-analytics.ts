@@ -8,7 +8,7 @@ export type SalesOpportunityInput = {
   value: number;
   probability: number;
   enterprise: boolean;
-  customerSegment: "consumer" | "enterprise" | "high_value";
+  customerSegment: "consumer" | "enterprise" | "high_value" | "unknown";
   networkReadiness: number;
   fiberReadiness: number;
   siteName: string;
@@ -21,7 +21,7 @@ export type SalesOpportunity = SalesOpportunityInput & {
 };
 
 export type SalesOperations = {
-  source: "persisted" | "operational-preview";
+  source: "persisted";
   updatedAt: string;
   summary: { opportunities: number; pipelineValue: number; weightedPipeline: number; enterpriseOpportunities: number; networkAtRisk: number; fiberReady: number };
   stages: Array<{ stage: string; count: number; value: number; share: number }>;
@@ -46,9 +46,3 @@ export function assembleSalesOperations(source: SalesOperations["source"], input
   return { source, updatedAt, summary: { opportunities: opportunities.length, pipelineValue, weightedPipeline: opportunities.reduce((sum, item) => sum + item.weightedValue, 0), enterpriseOpportunities: opportunities.filter(item => item.enterprise).length, networkAtRisk: opportunities.filter(item => item.networkIssue).length, fiberReady: opportunities.filter(item => isFiberReady(item.fiberReadiness)).length }, stages, opportunities };
 }
 
-export function createPreviewSalesOperations(sites: Array<{ id: string; name: string; lat: number; lng: number; congestion: number; fiber: number; status: string }>): SalesOperations {
-  const values = [250000, 1280000, 842000, 2700000];
-  const stages = ["Proposal", "Qualified", "Discovery", "Negotiation"];
-  const inputs = sites.map((site, index) => ({ id: `OPP-${String(index + 1).padStart(3, "0")}`, accountName: site.name === "Amman West" ? "Jordan Enterprise Connectivity" : `${site.name} Business Services`, region: site.name, latitude: site.lat, longitude: site.lng, stage: stages[index % stages.length], value: values[index % values.length], probability: [72, 48, 58, 36][index % 4], enterprise: index % 2 === 0, customerSegment: index % 2 === 0 ? "enterprise" as const : "high_value" as const, networkReadiness: Math.max(0, 100 - site.congestion), fiberReadiness: site.fiber, siteName: site.name }));
-  return assembleSalesOperations("operational-preview", inputs);
-}

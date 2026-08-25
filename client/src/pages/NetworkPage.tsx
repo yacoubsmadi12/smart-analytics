@@ -42,7 +42,7 @@ type NetworkCell = {
 };
 
 type NetworkOperations = {
-  source: "persisted" | "operational-preview";
+  source: "persisted";
   updatedAt: string;
   summary: {
     sites: number;
@@ -165,7 +165,7 @@ export default function NetworkPage() {
       </section>
 
       <section className="network-source-strip">
-        <div><span className="network-live-dot" /> <b>{operations.source === "persisted" ? "Persisted operational data" : "Operational preview dataset"}</b><span>Updated {formatUpdatedAt(operations.updatedAt)}</span></div>
+        <div><span className="network-live-dot" /> <b>Persisted operational data</b><span>Updated {formatUpdatedAt(operations.updatedAt)}</span></div>
         <span className="network-source-note">Network engineers · {operations.summary.cells} cells monitored</span>
       </section>
 
@@ -192,7 +192,7 @@ export default function NetworkPage() {
           <div className="network-trend-chart">
             {trends.length ? <><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Network KPI trend chart"><polyline className="trend-line availability-line" points={trendPoints(availabilityValues, trendMin, trendMax)} /><polyline className="trend-line congestion-line" points={trendPoints(congestionValues, trendMin, trendMax)} /><polyline className="trend-line throughput-line" points={trendPoints(throughputValues, trendMin, trendMax)} /></svg><div className="network-trend-gridlines"><span /><span /><span /><span /></div><div className="network-trend-labels">{trends.map(point => <small key={point.label}>{point.label}</small>)}</div></> : <div className="network-empty-state">No KPI trend records are available yet.</div>}
           </div>
-          <div className="network-trend-readout">{trends.slice(-1).map(point => <div key={point.label}><b>{formatDecimal(point.availability)}%</b><span>availability now</span></div>)}{trends.slice(-1).map(point => <div key={`c-${point.label}`}><b>{formatDecimal(point.congestion)}%</b><span>congestion now</span></div>)}{trends.slice(-1).map(point => <div key={`t-${point.label}`}><b>{formatDecimal(point.throughput)} Mbps</b><span>throughput now</span></div>)}</div>
+          <div className="network-trend-readout">{trends.length ? <>{trends.slice(-1).map(point => <div key={point.label}><b>{formatDecimal(point.availability)}%</b><span>availability now</span></div>)}{trends.slice(-1).map(point => <div key={`c-${point.label}`}><b>{formatDecimal(point.congestion)}%</b><span>congestion now</span></div>)}{trends.slice(-1).map(point => <div key={`t-${point.label}`}><b>{formatDecimal(point.throughput)} Mbps</b><span>throughput now</span></div>)}</> : <span className="network-trend-unavailable">No current trend values in the connected source.</span>}</div>
         </div>
         <div className="network-panel network-technology-panel">
           <div className="network-panel-head"><div><span className="section-kicker">TECHNOLOGY MIX</span><h2>Radio layer health</h2></div><Wifi size={18} /></div>

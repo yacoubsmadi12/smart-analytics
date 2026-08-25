@@ -1,9 +1,5 @@
 import {
   Activity,
-  BookOpen,
-  Download,
-  Link2,
-  UploadCloud,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -47,306 +43,25 @@ const modules: Record<
     grant: string;
   }
 > = {
-  "executive-overview": {
-    title: "Executive Overview",
-    ar: "",
-    eyebrow: "COMMAND CENTER",
-    summary:
-      "A consolidated view of network health, customer exposure, complaints, revenue and today’s decisions.",
-    metric: "96",
-    metricLabel: "operational health",
-    rows: [
-      ["Network health", "94.8%", "+2.4%", "Healthy"],
-      ["Open complaints", "1,842", "−12.6%", "Improving"],
-      ["Revenue at risk", "$1.28M", "−$184K", "Watch"],
-    ],
-    icon: Gauge,
-    grant: "dashboard.view",
-  },
-  "intelligence-map": {
-    title: "Intelligence Map",
-    ar: "",
-    eyebrow: "GEOSPATIAL OPERATIONS",
-    summary:
-      "Explore sites, cells, coverage quality, complaint hotspots and revenue exposure by geography.",
-    metric: "1,284",
-    metricLabel: "mapped sites",
-    rows: [
-      ["Amman West", "3 cells", "94% PRB", "Critical"],
-      ["Irbid Central", "Fiber node FN-204", "Outage risk", "Warning"],
-      ["Aqaba Coast", "Enterprise zone", "99.2%", "Healthy"],
-    ],
-    icon: Map,
-    grant: "map.view",
-  },
-  network: {
-    title: "Network",
-    ar: "",
-    eyebrow: "RADIO & CORE PERFORMANCE",
-    summary:
-      "Monitor availability, utilization, throughput and active incidents across the network.",
-    metric: "98.6%",
-    metricLabel: "availability",
-    rows: [
-      ["4G PRB utilization", "76.4%", "−3.2%", "Improving"],
-      ["Dropped sessions", "0.42%", "−0.08%", "Healthy"],
-      ["Backhaul headroom", "18.2%", "+4.5%", "Watch"],
-    ],
-    icon: Network,
-    grant: "network.view",
-  },
-  "customer-experience": {
-    title: "Customer Experience",
-    ar: "",
-    eyebrow: "CX CONTROL ROOM",
-    summary:
-      "Connect service quality to customer impact, response times and escalation pressure.",
-    metric: "18.4%",
-    metricLabel: "CX risk",
-    rows: [
-      ["First response time", "18 min", "−6 min", "On target"],
-      ["Escalations", "74", "+8", "Watch"],
-      ["Network-related CX", "68%", "−4.1%", "Correlated"],
-    ],
-    icon: Users,
-    grant: "complaints.view",
-  },
-  customers: {
-    title: "Customers",
-    ar: "",
-    eyebrow: "CUSTOMER INTELLIGENCE",
-    summary:
-      "Segment the active base by value, region and churn risk to focus retention actions.",
-    metric: "2.84M",
-    metricLabel: "active customers",
-    rows: [
-      ["High value", "184K", "12.8%", "Priority"],
-      ["Enterprise", "8,420", "$286K", "Protected"],
-      ["At-risk base", "42.1K", "18.4%", "Monitor"],
-    ],
-    icon: Users,
-    grant: "customers.view",
-  },
-  complaints: {
-    title: "Complaints",
-    ar: "",
-    eyebrow: "VOICE OF CUSTOMER",
-    summary:
-      "Prioritize open complaints by severity, network correlation and affected customer value.",
-    metric: "1,842",
-    metricLabel: "open complaints",
-    rows: [
-      ["Internet slow", "842", "68% network-related", "High"],
-      ["No service", "318", "Amman West", "Critical"],
-      ["Billing inquiry", "276", "Commercial", "Medium"],
-    ],
-    icon: AlertTriangle,
-    grant: "complaints.view",
-  },
-  "infrastructure-fiber": {
-    title: "Infrastructure / Fiber",
-    ar: "",
-    eyebrow: "FIBER & FIELD OPERATIONS",
-    summary:
-      "Track nodes, fiber availability, outages and crew dispatch priorities.",
-    metric: "99.1%",
-    metricLabel: "fiber availability",
-    rows: [
-      ["FN-204", "Irbid Central", "Down", "Dispatch"],
-      ["FN-118", "Amman West", "92%", "Capacity"],
-      ["FN-077", "Salt Heights", "99.8%", "Healthy"],
-    ],
-    icon: Wifi,
-    grant: "infrastructure.view",
-  },
-  sales: {
-    title: "Sales",
-    ar: "",
-    eyebrow: "COMMERCIAL PIPELINE",
-    summary:
-      "Review opportunities by stage, probability, region and expected value.",
-    metric: "$4.82M",
-    metricLabel: "qualified pipeline",
-    rows: [
-      ["Enterprise connectivity", "$1.28M", "74%", "Proposal"],
-      ["Fiber upgrade", "$842K", "58%", "Discovery"],
-      ["Managed services", "$2.7M", "36%", "Qualified"],
-    ],
-    icon: Target,
-    grant: "sales.view",
-  },
-  marketing: {
-    title: "Marketing",
-    ar: "",
-    eyebrow: "CAMPAIGN PERFORMANCE",
-    summary:
-      "Compare campaign reach, spend and conversion across priority customer segments.",
-    metric: "8.7%",
-    metricLabel: "conversion rate",
-    rows: [
-      ["Fiber upgrade Q3", "$84K", "11.2%", "Live"],
-      ["Enterprise 5G", "$120K", "7.8%", "Optimizing"],
-      ["Retention wave", "$42K", "9.4%", "Live"],
-    ],
-    icon: Sparkles,
-    grant: "marketing.view",
-  },
-  "business-revenue": {
-    title: "Business & Revenue",
-    ar: "",
-    eyebrow: "REVENUE COMMAND",
-    summary:
-      "See realized revenue, risk exposure and commercial sensitivity by region.",
-    metric: "$1.28M",
-    metricLabel: "revenue at risk",
-    rows: [
-      ["Amman West", "$286K", "8,420 customers", "Urgent"],
-      ["Aqaba Coast", "$192K", "34 accounts", "Retention"],
-      ["Irbid Central", "$119K", "2,180 customers", "Fiber"],
-    ],
-    icon: BarChart3,
-    grant: "revenue.view",
-  },
-  priorities: {
-    title: "Priorities",
-    ar: "",
-    eyebrow: "DECISION SUPPORT",
-    summary:
-      "Rank the five actions with the highest combined customer and revenue impact.",
-    metric: "5",
-    metricLabel: "actions today",
-    rows: [
-      ["Capacity upgrade", "94", "$286K", "Amman West"],
-      ["Dispatch fiber crew", "88", "$119K", "Irbid Central"],
-      ["Retention squad", "76", "$192K", "Aqaba Coast"],
-    ],
-    icon: Gauge,
-    grant: "dashboard.view",
-  },
-  "ai-assistant": {
-    title: "AI Assistant",
-    ar: "",
-    eyebrow: "DECISION COPILOT",
-    summary:
-      "Ask permission-scoped questions about network, customer experience and commercial outcomes.",
-    metric: "RBAC",
-    metricLabel: "scope enforced",
-    rows: [
-      ["Network diagnosis", "Available", "Protected", "Ask"],
-      ["Customer impact", "Available", "Protected", "Ask"],
-      ["General intelligence", "Admin only", "Restricted", "Guarded"],
-    ],
-    icon: Sparkles,
-    grant: "ai.ask",
-  },
-  alerts: {
-    title: "Alerts",
-    ar: "",
-    eyebrow: "ACTIVE SIGNALS",
-    summary:
-      "Review operational alerts requiring acknowledgement, ownership and resolution.",
-    metric: "7",
-    metricLabel: "active alerts",
-    rows: [
-      ["Cell congestion", "Amman West", "4G", "Critical"],
-      ["Fiber outage", "Irbid Central", "FN-204", "High"],
-      ["Churn signal", "Aqaba Coast", "Enterprise", "Medium"],
-    ],
-    icon: AlertTriangle,
-    grant: "dashboard.view",
-  },
-  reports: {
-    title: "Reports",
-    ar: "",
-    eyebrow: "ANALYTICS OUTPUT",
-    summary:
-      "Generate controlled views for operations, executives, CX and commercial leadership.",
-    metric: "24",
-    metricLabel: "available reports",
-    rows: [
-      ["Network health", "Daily", "Operations", "Ready"],
-      ["CX risk review", "Weekly", "Executive", "Ready"],
-      ["Revenue exposure", "Monthly", "Finance", "Ready"],
-    ],
-    icon: BarChart3,
-    grant: "dashboard.view",
-  },
-  "data-management": {
-    title: "Data Management",
-    ar: "",
-    eyebrow: "DATA CONTROL PLANE",
-    summary:
-      "Validate sources, monitor freshness and review integration health before analytics use.",
-    metric: "3",
-    metricLabel: "connected sources",
-    rows: [
-      ["Network OSS", "API", "1.28M records", "Healthy"],
-      ["CX & Complaints", "SFTP", "18.4K records", "Healthy"],
-      ["Commercial CRM", "Database", "8.4K records", "Warning"],
-    ],
-    icon: Database,
-    grant: "data.view",
-  },
-  "user-management": {
-    title: "User Management",
-    ar: "",
-    eyebrow: "IDENTITY & ACCESS",
-    summary:
-      "Review users, role assignments and access scope across operational domains.",
-    metric: "3",
-    metricLabel: "active profiles",
-    rows: [
-      ["System Administrator", "Admin", "All domains", "Active"],
-      ["Network Operations", "Operations", "Network + GIS", "Active"],
-      ["CX Leadership", "Executive", "CX + Revenue", "Review"],
-    ],
-    icon: ShieldCheck,
-    grant: "users.manage",
-  },
-  "system-settings": {
-    title: "System Settings",
-    ar: "",
-    eyebrow: "PLATFORM CONFIGURATION",
-    summary:
-      "Control session policy, language defaults, MFA readiness and data retention policy.",
-    metric: "12h",
-    metricLabel: "session policy",
-    rows: [
-      ["Default language", "", "Workspace", "Ready"],
-      ["MFA readiness", "Provider ready", "Security", "Ready"],
-      ["Audit retention", "90 days", "Governance", "Active"],
-    ],
-    icon: ShieldCheck,
-    grant: "settings.manage",
-  },
-  "audit-logs": {
-    title: "Audit Logs",
-    ar: "",
-    eyebrow: "GOVERNANCE TRAIL",
-    summary:
-      "Trace permission changes, validation actions, exports and blocked access attempts.",
-    metric: "184",
-    metricLabel: "events in 24h",
-    rows: [
-      ["Permission policy updated", "Admin", "2 min ago", "Allowed"],
-      ["Data source validation", "System", "18 min ago", "Success"],
-      ["Failed login attempt", "Unknown", "1h ago", "Blocked"],
-    ],
-    icon: Activity,
-    grant: "audit.view",
-  },
+  "executive-overview": { title: "Executive Overview", ar: "", eyebrow: "COMMAND CENTER", summary: "A consolidated view populated only from connected operational sources.", metric: "—", metricLabel: "source data required", rows: [], icon: Gauge, grant: "dashboard.view" },
+  "intelligence-map": { title: "Intelligence Map", ar: "", eyebrow: "GEOSPATIAL OPERATIONS", summary: "Explore locations only after a source-backed site inventory is connected.", metric: "—", metricLabel: "mapped sites", rows: [], icon: Map, grant: "map.view" },
+  network: { title: "Network", ar: "", eyebrow: "RADIO & CORE PERFORMANCE", summary: "Monitor network KPIs from imported or connected source records.", metric: "—", metricLabel: "source data required", rows: [], icon: Network, grant: "network.view" },
+  "customer-experience": { title: "Customer Experience", ar: "", eyebrow: "CX CONTROL ROOM", summary: "Connect service quality to customer impact using source-backed signals.", metric: "—", metricLabel: "source data required", rows: [], icon: Users, grant: "complaints.view" },
+  customers: { title: "Customers", ar: "", eyebrow: "CUSTOMER INTELLIGENCE", summary: "Segment customer records only when an authorized customer dataset is available.", metric: "—", metricLabel: "source data required", rows: [], icon: Users, grant: "customers.view" },
+  complaints: { title: "Complaints", ar: "", eyebrow: "VOICE OF CUSTOMER", summary: "Prioritize complaint records from connected customer-care sources.", metric: "—", metricLabel: "source data required", rows: [], icon: AlertTriangle, grant: "complaints.view" },
+  "infrastructure-fiber": { title: "Infrastructure / Fiber", ar: "", eyebrow: "FIBER & FIELD OPERATIONS", summary: "Track infrastructure records after a source-backed fiber dataset is connected.", metric: "—", metricLabel: "source data required", rows: [], icon: Wifi, grant: "infrastructure.view" },
+  sales: { title: "Sales", ar: "", eyebrow: "COMMERCIAL PIPELINE", summary: "Review opportunities only from an authorized CRM or sales source.", metric: "—", metricLabel: "source data required", rows: [], icon: Target, grant: "sales.view" },
+  marketing: { title: "Marketing", ar: "", eyebrow: "CAMPAIGN PERFORMANCE", summary: "Compare campaign performance using connected marketing records.", metric: "—", metricLabel: "source data required", rows: [], icon: Sparkles, grant: "marketing.view" },
+  "business-revenue": { title: "Business & Revenue", ar: "", eyebrow: "REVENUE COMMAND", summary: "See revenue exposure only when source-backed revenue records are available.", metric: "—", metricLabel: "source data required", rows: [], icon: BarChart3, grant: "revenue.view" },
+  priorities: { title: "Priorities", ar: "", eyebrow: "DECISION SUPPORT", summary: "Rank actions from current source-backed signals; no recommendations are invented.", metric: "—", metricLabel: "source data required", rows: [], icon: Gauge, grant: "dashboard.view" },
+  "ai-assistant": { title: "AI Assistant", ar: "", eyebrow: "DECISION COPILOT", summary: "Ask questions about connected and permission-scoped telecom data.", metric: "—", metricLabel: "source data required", rows: [], icon: Sparkles, grant: "ai.ask" },
+  alerts: { title: "Alerts", ar: "", eyebrow: "ACTIVE SIGNALS", summary: "Review alerts derived from current source-backed operational signals.", metric: "—", metricLabel: "source data required", rows: [], icon: AlertTriangle, grant: "dashboard.view" },
+  reports: { title: "Reports", ar: "", eyebrow: "ANALYTICS OUTPUT", summary: "Generate reports only from the current source-backed operational dataset.", metric: "—", metricLabel: "source data required", rows: [], icon: BarChart3, grant: "dashboard.view" },
+  "data-management": { title: "Data Management", ar: "", eyebrow: "DATA CONTROL PLANE", summary: "Validate sources, monitor freshness and document the datasets used by analytics.", metric: "—", metricLabel: "connected sources", rows: [], icon: Database, grant: "data.view" },
+  "user-management": { title: "User Management", ar: "", eyebrow: "IDENTITY & ACCESS", summary: "Review users, roles and access scope from the administration directory.", metric: "—", metricLabel: "active profiles", rows: [], icon: ShieldCheck, grant: "users.manage" },
+  "system-settings": { title: "System Settings", ar: "", eyebrow: "PLATFORM CONFIGURATION", summary: "Control platform configuration without embedding operational data.", metric: "—", metricLabel: "configuration", rows: [], icon: ShieldCheck, grant: "settings.manage" },
+  "audit-logs": { title: "Audit Logs", ar: "", eyebrow: "GOVERNANCE TRAIL", summary: "Trace administrative actions recorded by the platform.", metric: "—", metricLabel: "recorded events", rows: [], icon: Activity, grant: "audit.view" },
 };
-
-const datasetDocs = [
-  { key: "network-sites", name: "Network Sites", icon: Network, description: "Geographic and operational inventory of telecom sites and their active technologies.", methods: "CSV / Excel / API / SFTP", required: ["site_id", "site_name", "latitude", "longitude", "region", "status", "technology"], optional: ["address", "vendor", "commissioned_at"], fields: "site_id identifies the site; latitude and longitude locate it; status and technology describe operational readiness.", rules: "Identifiers are required, coordinates must be valid, and status must be an accepted operational value.", relations: "site_id links cells, network KPIs, complaints, customers, fiber, sales opportunities, and revenue impact.", usedBy: ["Command Center", "Executive Overview", "Intelligence Map", "Network", "Priorities", "AI Assistant"], impact: "Updates map markers, network coverage, site health, priority scoring, and AI site context." },
-  { key: "network-kpi", name: "Network KPI", icon: Gauge, description: "Time-series cell performance used to measure availability, traffic, utilization, and throughput.", methods: "CSV / Excel / API / SFTP", required: ["site_id", "cell_id", "timestamp", "availability", "traffic", "prb_utilization", "throughput"], optional: ["technology", "coverage", "latency"], fields: "site_id and cell_id identify the network scope; timestamp preserves the observation time; KPI fields are numeric measurements.", rules: "Timestamps must be parseable, KPI values numeric, and identifiers must match known sites or cells when available.", relations: "site_id connects KPIs to sites; cell_id connects the record to worst-cell analysis, complaints correlation, and affected customers.", usedBy: ["Command Center", "Executive Overview", "Intelligence Map", "Network", "Customer Experience", "Complaints", "Priorities", "Alerts", "AI Assistant"], impact: "Recalculates network health, congestion, worst cells, CX risk, complaint correlation, priorities, and alerts." },
-  { key: "complaints", name: "Complaints", icon: AlertTriangle, description: "Customer complaint events correlated with geography, severity, status, and network context.", methods: "CSV / Excel / API / SFTP", required: ["complaint_id", "customer_id", "latitude", "longitude", "category", "severity", "status", "created_at", "site_id"], optional: ["description", "channel", "resolved_at"], fields: "complaint_id identifies the event; customer_id and site_id provide relationships; category, severity, and status drive operational triage.", rules: "IDs are required, created_at must be a valid date, severity/status must use accepted values, and coordinates must be valid when provided.", relations: "site_id links complaints to cells and sites; customer_id links complaint exposure to customer value and churn risk.", usedBy: ["Customer Experience", "Complaints", "Intelligence Map", "Priorities", "Alerts", "Revenue Risk", "AI Assistant"], impact: "Updates hotspots, complaint growth, CX risk factors, priority scoring, alert signals, and revenue-risk context." },
-  { key: "customers", name: "Customers", icon: Users, description: "Customer profile, segment, value, churn risk, and location data used for impact analysis.", methods: "CSV / Excel / API / SFTP", required: ["customer_id", "customer_type", "segment", "latitude", "longitude", "customer_value", "churn_risk"], optional: ["site_id", "industry", "contract_end"], fields: "customer_id identifies the customer; segment and customer_type classify the account; customer_value and churn_risk support prioritization.", rules: "Identifiers are required, value/risk fields must be numeric, and coordinates must be valid for geospatial analysis.", relations: "customer_id links complaints and sales; site_id or proximity links customers to network exposure, fiber readiness, and revenue risk.", usedBy: ["Customers", "Customer Experience", "Intelligence Map", "Business & Revenue", "Priorities", "AI Assistant"], impact: "Updates customer density, high-value clusters, churn exposure, CX impact, and revenue opportunity calculations." },
-] as const;
-
-function downloadDatasetTemplate(dataset: typeof datasetDocs[number]) { const csv = `${dataset.required.join(",")}\\n${dataset.required.map(() => "").join(",")}\\n`; const blob = new Blob([csv], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${dataset.key}-template.csv`; anchor.click(); URL.revokeObjectURL(url); }
-
-function DatasetDocumentation() { const [selected, setSelected] = useState<string>(datasetDocs[0].key); const dataset = datasetDocs.find(item => item.key === selected) ?? datasetDocs[0]; return <section className="data-governance"><div className="module-subhead"><b><BookOpen size={14}/> Data Documentation</b><span>Self-documenting source contracts</span></div><div className="governance-nav"><span className="active">Data Sources</span><span>Upload Data</span><span>Data Mapping</span><span>Data Validation</span><span className="active">Data Documentation</span><span>Data Impact</span><span>Import History</span><span>Data Quality</span></div><div className="dataset-tabs">{datasetDocs.map(item => <button type="button" className={item.key === selected ? "active" : ""} onClick={() => setSelected(item.key)} key={item.key}><item.icon size={14}/>{item.name}</button>)}</div><div className="dataset-doc-grid"><div><div className="dataset-title"><dataset.icon size={20}/><span><b>{dataset.name}</b><small>{dataset.description}</small></span></div><div className="doc-section"><b>How to provide it</b><p>{dataset.methods}</p></div><div className="doc-section"><b>Required columns</b><div className="field-chips">{dataset.required.map(field => <code key={field}>{field}</code>)}</div></div><div className="doc-section"><b>Optional columns</b><div className="field-chips muted">{dataset.optional.map(field => <code key={field}>{field}</code>)}</div></div><button type="button" className="action-chip" onClick={() => downloadDatasetTemplate(dataset)}><Download size={13}/> Download template</button></div><div><div className="doc-section"><b>Field definitions</b><p>{dataset.fields}</p></div><div className="doc-section"><b>Validation rules</b><p>{dataset.rules}</p></div><div className="doc-section"><b>Relationships</b><p><Link2 size={13}/> {dataset.relations}</p></div><div className="doc-section"><b>Where is this data used?</b><div className="used-modules">{dataset.usedBy.map(module => <span key={module}><CheckCircle2 size={12}/>{module}</span>)}</div></div></div></div><div className="impact-preview"><UploadCloud size={16}/><div><b>Impact preview</b><span>{dataset.impact}</span></div><strong>Ready for validate → preview → import</strong></div><div className="data-quality-row"><div><b>Missing</b><strong>Awaiting validation</strong></div><div><b>Invalid</b><strong>Awaiting validation</strong></div><div><b>Duplicate</b><strong>Awaiting validation</strong></div><div><b>Stale data</b><strong>Checked on import</strong></div></div></section>; }
 
 function DataSourceConsole() {
   const [method, setMethod] = useState<"manual" | "api" | "sftp" | "database">(
@@ -417,7 +132,6 @@ function DataSourceConsole() {
   };
   return (
     <div className="standalone-data-console">
-      <DatasetDocumentation />
       <div className="module-subhead">
         <b>Connected sources</b>
         <span className={sourcesLoading ? "loading-inline" : ""}>
@@ -805,4 +519,3 @@ export const DataManagementPage = () => <ModulePage slug="data-management" />;
 export const UserManagementPage = () => <ModulePage slug="user-management" />;
 export const SystemSettingsPage = () => <ModulePage slug="system-settings" />;
 export const AuditLogsPage = () => <ModulePage slug="audit-logs" />;
-export { datasetDocs };

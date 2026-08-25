@@ -13,6 +13,7 @@ import {
   createImportRun,
   ensureLocalAdmin,
   getPersistedDashboardSummary,
+  getPersistedMapSites,
   getPersistedNetworkOperations,
   getPersistedCustomerExperience,
   getPersistedCustomerOperations,
@@ -38,15 +39,6 @@ import { storagePut } from "./storage";
 import { saveImportMapping, updateDataSourceSync } from "./db";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
-import { createPreviewNetworkOperations } from "./network-analytics";
-import { createPreviewCustomerExperience } from "./cx-analytics";
-import { createPreviewCustomerOperations } from "./customers-analytics";
-import { createPreviewComplaintOperations } from "./complaints-analytics";
-import { createPreviewInfrastructureOperations } from "./infrastructure-analytics";
-import { createPreviewSalesOperations } from "./sales-analytics";
-import { createPreviewMarketingOperations } from "./marketing-analytics";
-import { createPreviewBusinessRevenueOperations } from "./business-revenue-analytics";
-import { createPreviewPrioritiesOperations } from "./priorities-analytics";
 import { createOperationalAlerts, createReport, type ReportKind } from "./platform-operations";
 
 let systemSettings = { networkImpact: 35, customerImpact: 20, revenueImpact: 25, language: "English", timezone: "Asia/Amman", dataRefreshMinutes: 15, theme: "Telecom NOC" };
@@ -83,137 +75,6 @@ const permissionsByRole: Record<string, string[]> = {
   ],
 };
 
-const priorities = [
-  {
-    id: "P-001",
-    area: "Amman West",
-    issue: "4G congestion at 3 cells",
-    score: 94,
-    customers: 8420,
-    revenue: 286000,
-    action: "Capacity upgrade",
-    severity: "critical",
-  },
-  {
-    id: "P-002",
-    area: "Irbid Central",
-    issue: "Fiber outage correlation",
-    score: 88,
-    customers: 2180,
-    revenue: 119000,
-    action: "Dispatch fiber crew",
-    severity: "high",
-  },
-  {
-    id: "P-003",
-    area: "Zarqa North",
-    issue: "Complaint surge · Internet slow",
-    score: 82,
-    customers: 5740,
-    revenue: 84000,
-    action: "Tune radio parameters",
-    severity: "high",
-  },
-  {
-    id: "P-004",
-    area: "Aqaba Coast",
-    issue: "Enterprise churn risk",
-    score: 76,
-    customers: 34,
-    revenue: 192000,
-    action: "Assign retention squad",
-    severity: "medium",
-  },
-  {
-    id: "P-005",
-    area: "Salt Heights",
-    issue: "Backhaul utilization > 90%",
-    score: 71,
-    customers: 3100,
-    revenue: 63000,
-    action: "Activate microwave link",
-    severity: "medium",
-  },
-];
-
-const mapSites = [
-  {
-    id: "AMW-042",
-    name: "Amman West",
-    lat: 31.9539,
-    lng: 35.9106,
-    status: "healthy",
-    availability: 98.6,
-    traffic: 1.42,
-    congestion: 94,
-    cells4g: 18,
-    cells5g: 7,
-    customers: 8420,
-    complaints: 128,
-    churn: 3.8,
-    fiber: 92,
-    salesOpportunities: 14,
-    revenueRisk: 184000,
-    throughput: 42.8,
-  },
-  {
-    id: "IRC-118",
-    name: "Irbid Central",
-    lat: 32.5556,
-    lng: 35.8497,
-    status: "warning",
-    availability: 96.1,
-    traffic: 0.86,
-    congestion: 76,
-    cells4g: 14,
-    cells5g: 4,
-    customers: 6310,
-    complaints: 84,
-    churn: 5.4,
-    fiber: 78,
-    salesOpportunities: 9,
-    revenueRisk: 96000,
-    throughput: 35.2,
-  },
-  {
-    id: "ZN-233",
-    name: "Zarqa North",
-    lat: 32.0728,
-    lng: 36.088,
-    status: "critical",
-    availability: 91.4,
-    traffic: 1.1,
-    congestion: 89,
-    cells4g: 11,
-    cells5g: 2,
-    customers: 5140,
-    complaints: 176,
-    churn: 7.1,
-    fiber: 64,
-    salesOpportunities: 6,
-    revenueRisk: 142000,
-    throughput: 21.7,
-  },
-  {
-    id: "AQ-019",
-    name: "Aqaba Coast",
-    lat: 29.5321,
-    lng: 35.0063,
-    status: "healthy",
-    availability: 99.2,
-    traffic: 0.64,
-    congestion: 44,
-    cells4g: 9,
-    cells5g: 3,
-    customers: 2980,
-    complaints: 22,
-    churn: 2.2,
-    fiber: 96,
-    salesOpportunities: 18,
-    revenueRisk: 38000,
-    throughput: 51.4,
-  },
-];
 
 const adminOnly = (user: { role: string }) => {
   if (user.role !== "admin")
@@ -286,86 +147,65 @@ export const appRouter = router({
     }),
   }),
   dashboard: router({
-    summary: protectedProcedure.query(async () =>
-      (await getPersistedDashboardSummary()) ?? {
-        networkHealth: 94.8,
-        sites: 1284,
-        customers: 2840000,
-        openComplaints: 1842,
-        cxRisk: 18.4,
-        revenueAtRisk: 1280000,
-        updatedMinutesAgo: 2,
-      }
-    ),
+    summary: protectedProcedure.query(() => getPersistedDashboardSummary()),
     priorities: protectedProcedure
       .input(
         z.object({ limit: z.number().min(1).max(10).default(5) }).optional()
       )
-      .query(({ input }) => priorities.slice(0, input?.limit ?? 5)),
+      .query(async ({ input }) => (await getPersistedPrioritiesOperations())?.priorities.slice(0, input?.limit ?? 5) ?? []),
   }),
   map: router({
     sites: protectedProcedure
       .input(z.object({ statuses: z.array(z.string()).optional() }).optional())
-      .query(({ input }) =>
-        input?.statuses?.length
-          ? mapSites.filter(s => input.statuses?.includes(s.status))
-          : mapSites
-      ),
+      .query(async ({ input }) => {
+        const sites = (await getPersistedMapSites()) ?? [];
+        return input?.statuses?.length ? sites.filter(site => input.statuses?.includes(site.status)) : sites;
+      }),
     siteDetails: protectedProcedure
       .input(z.object({ siteId: z.string() }))
-      .query(({ input }) => mapSites.find(s => s.id === input.siteId) ?? null),
+      .query(async ({ input }) => (await getPersistedMapSites())?.find(site => site.id === input.siteId) ?? null),
   }),
   network: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedNetworkOperations()) ?? createPreviewNetworkOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedNetworkOperations()),
   }),
   customerExperience: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedCustomerExperience()) ?? createPreviewCustomerExperience(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedCustomerExperience()),
   }),
   customers: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedCustomerOperations()) ?? createPreviewCustomerOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedCustomerOperations()),
   }),
   complaints: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedComplaintOperations()) ?? createPreviewComplaintOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedComplaintOperations()),
   }),
   infrastructure: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedInfrastructureOperations()) ?? createPreviewInfrastructureOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedInfrastructureOperations()),
   }),
   sales: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedSalesOperations()) ?? createPreviewSalesOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedSalesOperations()),
   }),
   marketing: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedMarketingOperations()) ?? createPreviewMarketingOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedMarketingOperations()),
   }),
   businessRevenue: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedBusinessRevenueOperations()) ?? createPreviewBusinessRevenueOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedBusinessRevenueOperations()),
   }),
   priorities: router({
-    operations: protectedProcedure.query(async () =>
-      (await getPersistedPrioritiesOperations()) ?? createPreviewPrioritiesOperations(mapSites)
-    ),
+    operations: protectedProcedure.query(() => getPersistedPrioritiesOperations()),
   }),
   alerts: router({
-    operations: protectedProcedure.query(() => createOperationalAlerts(mapSites)),
-    updateStatus: protectedProcedure.input(z.object({ id: z.string().min(1), status: z.enum(["acknowledged", "resolved"]), assignee: z.string().max(120).optional() })).mutation(({ input }) => ({ ...createOperationalAlerts(mapSites).find(alert => alert.id === input.id)!, status: input.status, assignee: input.assignee ?? null })),
+    operations: protectedProcedure.query(async () => {
+      const sites = await getPersistedMapSites();
+      return sites ? createOperationalAlerts(sites) : [];
+    }),
+    updateStatus: protectedProcedure.input(z.object({ id: z.string().min(1), status: z.enum(["acknowledged", "resolved"]), assignee: z.string().max(120).optional() })).mutation(async ({ input }) => {
+      const sites = await getPersistedMapSites();
+      const alert = sites ? createOperationalAlerts(sites).find(item => item.id === input.id) : undefined;
+      if (!alert) throw new TRPCError({ code: "NOT_FOUND", message: "Alert is unavailable because no matching source-backed signal was found." });
+      return { ...alert, status: input.status, assignee: input.assignee ?? null };
+    }),
   }),
   reports: router({
-    generate: protectedProcedure.input(z.object({ kind: z.enum(["executive", "network", "customer-experience", "business", "priority"]) })).query(({ input }) => createReport(input.kind as ReportKind, mapSites)),
+    generate: protectedProcedure.input(z.object({ kind: z.enum(["executive", "network", "customer-experience", "business", "priority"]) })).query(async ({ input }) => { const sites = await getPersistedMapSites(); return sites ? createReport(input.kind as ReportKind, sites) : null; }),
   }),
   settings: router({
     get: protectedProcedure.query(({ ctx }) => { adminOnly(ctx.user); return systemSettings; }),
@@ -391,8 +231,10 @@ export const appRouter = router({
             code: "FORBIDDEN",
             message: "Choose a permitted intelligence domain",
           });
-        const site = input.siteId ? mapSites.find(item => item.id === input.siteId) : undefined;
-        const datasetContext = mapSites.map(item => `${item.id} ${item.name}: availability ${item.availability}%, congestion ${item.congestion}%, customers ${item.customers}, complaints ${item.complaints}, churn ${item.churn}%, fiber ${item.fiber}%, revenue risk ${item.revenueRisk}, sales opportunities ${item.salesOpportunities}`).join("\\n");
+        const sourceSites = await getPersistedMapSites();
+        if (!sourceSites?.length) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "AI analysis is unavailable until a source-backed site dataset is connected." });
+        const site = input.siteId ? sourceSites.find(item => item.id === input.siteId) : undefined;
+        const datasetContext = sourceSites.map(item => `${item.id} ${item.name}: availability ${item.availability}%, congestion ${item.congestion}%, customers ${item.customers}, complaints ${item.complaints}, churn ${item.churn}%, fiber ${item.fiber}%, revenue risk ${item.revenueRisk}, sales opportunities ${item.salesOpportunities}`).join("\\n");
         const scopedQuestion = site
           ? `[Selected site context: ${site.id} · ${site.name}] Network availability ${site.availability}%, traffic ${site.traffic} TB, congestion ${site.congestion}% PRB, customers ${site.customers}, complaints ${site.complaints}, churn ${site.churn}%, fiber ${site.fiber}%, revenue risk $${site.revenueRisk.toLocaleString()}, sales opportunities ${site.salesOpportunities}.]\\n${input.question}`
           : `${input.question}\\n\\n[Operational dataset]\\n${datasetContext}`;
@@ -416,8 +258,8 @@ export const appRouter = router({
           answer,
         });
         const normalizedQuestion = input.question.toLowerCase();
-        let relatedSiteIds = mapSites.filter(item => normalizedQuestion.includes(item.id.toLowerCase()) || normalizedQuestion.includes(item.name.toLowerCase())).map(item => item.id);
-        if (!relatedSiteIds.length && /congest|complaint|churn|revenue|critical/.test(normalizedQuestion)) relatedSiteIds = mapSites.filter(item => item.congestion >= 85 || item.complaints >= 100 || item.churn >= 6 || item.revenueRisk >= 180000).map(item => item.id);
+        let relatedSiteIds = sourceSites.filter(item => normalizedQuestion.includes(item.id.toLowerCase()) || normalizedQuestion.includes(item.name.toLowerCase())).map(item => item.id);
+        if (!relatedSiteIds.length && /congest|complaint|churn|revenue|critical/.test(normalizedQuestion)) relatedSiteIds = sourceSites.filter(item => item.congestion >= 85 || item.complaints >= 100 || item.churn >= 6 || item.revenueRisk >= 180000).map(item => item.id);
         return { answer, domain: input.domain, loggedAt: new Date(), relatedSiteIds, mapAction: relatedSiteIds.length ? "highlight-sites" : "none" };
       }),
     history: protectedProcedure

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const conversationStore = vi.hoisted(() => new Map<number, Array<{ id: number; userId: number; domain: string; question: string; answer: string; createdAt: Date }>>());
+const sourceSites = [{ id: "SRC-001", name: "Connected Site 001", lat: 31.95, lng: 35.91, status: "healthy", availability: 99, traffic: 2, congestion: 20, cells4g: 1, cells5g: 1, customers: 10, complaints: 1, churn: 1, fiber: 95, salesOpportunities: 1, revenueRisk: 1000, throughput: 40 }];
 vi.mock("./db", () => ({
   createAiConversation: vi.fn(async (input: { userId: number; domain: string; question: string; answer: string }) => {
     const list = conversationStore.get(input.userId) ?? [];
@@ -8,7 +9,8 @@ vi.mock("./db", () => ({
     conversationStore.set(input.userId, list);
   }),
   listAiConversations: vi.fn(async (userId: number, domain?: string) => (conversationStore.get(userId) ?? []).filter(item => !domain || item.domain === domain)),
-  listDataSources: vi.fn(async () => [{ id: 1, name: "Network OSS", type: "api", status: "healthy", lastSyncAt: new Date(), createdAt: new Date() }, { id: 2, name: "CX", type: "sftp", status: "healthy", lastSyncAt: new Date(), createdAt: new Date() }, { id: 3, name: "CRM", type: "database", status: "warning", lastSyncAt: new Date(), createdAt: new Date() }]),
+  listDataSources: vi.fn(async () => [{ id: 1, name: "Connected source", type: "api", status: "healthy", lastSyncAt: new Date(), createdAt: new Date() }]),
+  getPersistedMapSites: vi.fn(async () => sourceSites),
 }));
 vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn(async () => ({ choices: [{ message: { content: "Mocked decision answer" } }] })) }));
 
@@ -25,8 +27,8 @@ function context(role: "admin" | "user", id = 7): TrpcContext {
 
 describe("analytics protected procedures", () => {
   it("returns a selected site and preserves its operational status", async () => {
-    const site = await appRouter.createCaller(context("user")).map.siteDetails({ siteId: "AMW-042" });
-    expect(site?.name).toBe("Amman West");
+    const site = await appRouter.createCaller(context("user")).map.siteDetails({ siteId: "SRC-001" });
+    expect(site?.name).toBe("Connected Site 001");
     expect(site?.status).toBe("healthy");
   });
 
@@ -36,14 +38,14 @@ describe("analytics protected procedures", () => {
   });
 
   it("returns all operational layer metrics for a site", async () => {
-    const site = await appRouter.createCaller(context("user")).map.siteDetails({ siteId: "AMW-042" });
-    expect(site).toMatchObject({ cells4g: 18, cells5g: 7, customers: 8420, complaints: 128, churn: 3.8, fiber: 92, salesOpportunities: 14, revenueRisk: 184000 });
+    const site = await appRouter.createCaller(context("user")).map.siteDetails({ siteId: "SRC-001" });
+    expect(site).toMatchObject({ cells4g: 1, cells5g: 1, customers: 10, complaints: 1, churn: 1, fiber: 95, salesOpportunities: 1, revenueRisk: 1000 });
   });
 
   it("keeps data sources restricted to administrators", async () => {
     await expect(appRouter.createCaller(context("user")).data.sources()).rejects.toMatchObject({ code: "FORBIDDEN" });
     const sources = await appRouter.createCaller(context("admin")).data.sources();
-    expect(sources).toHaveLength(3);
+    expect(sources).toHaveLength(1);
     const validation = await appRouter.createCaller(context("admin")).data.validate({ sourceId: "src-network" });
     expect(validation.valid).toBe(true);
   });
@@ -60,20 +62,20 @@ describe("analytics protected procedures", () => {
   it("persists an AI answer and returns it through history for the same user and domain", async () => {
     conversationStore.clear();
     const caller = appRouter.createCaller(context("admin", 21));
-    const result = await caller.ai.ask({ question: "Why is Amman West the top priority?", domain: "network" });
+    const result = await caller.ai.ask({ question: "Which connected site needs attention?", domain: "network" });
     const history = await caller.ai.history({ domain: "network" });
     expect(result.answer).toBe("Mocked decision answer");
-    expect(history[0]?.question).toContain("Amman West");
+    expect(history[0]?.question).toContain("Which connected site needs attention?");
     expect(history[0]?.answer).toBe(result.answer);
   });
 
   it("attaches the selected site context to an AI decision trail", async () => {
     conversationStore.clear();
     const caller = appRouter.createCaller(context("admin", 22));
-    await caller.ai.ask({ question: "What should we fix first?", domain: "network", siteId: "AMW-042" });
+    await caller.ai.ask({ question: "What should we fix first?", domain: "network", siteId: "SRC-001" });
     const history = await caller.ai.history({ domain: "network" });
-    expect(history[0]?.question).toContain("[Selected site context: AMW-042 · Amman West]");
-    expect(history[0]?.question).toContain("complaints 128");
+    expect(history[0]?.question).toContain("[Selected site context: SRC-001 · Connected Site 001]");
+    expect(history[0]?.question).toContain("complaints 1");
   });
 
   it("scopes AI history by both user and domain", async () => {

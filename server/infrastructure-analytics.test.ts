@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assembleInfrastructureOperations, buildFiberOpportunity, createPreviewInfrastructureOperations, scoreFiberOpportunity, type InfrastructureRecord } from "./infrastructure-analytics";
+import { assembleInfrastructureOperations, buildFiberOpportunity, scoreFiberOpportunity, type InfrastructureRecord } from "./infrastructure-analytics";
 
 const record = (overrides: Partial<InfrastructureRecord> = {}): InfrastructureRecord => ({ id: "INF-001", nodeCode: "FN-118", region: "Amman West", latitude: 31.9539, longitude: 35.9106, fiberAvailability: 92, congestion: 94, status: "critical", backhaul: "mixed", plannedUpgrade: true, linkCount: 3, ...overrides });
 
@@ -16,11 +16,6 @@ describe("infrastructure intelligence analytics", () => {
     expect(result.summary).toMatchObject({ fiberNodes: 2, fiberLinks: 5, fiberAvailability: 95.5, migrationOpportunities: 1 });
     expect(result.regions[0]).toMatchObject({ region: "Amman West", opportunities: 1 });
   });
-  it("builds preview infrastructure from operational sites", () => {
-    const result = createPreviewInfrastructureOperations([{ id: "AMW-042", name: "Amman West", lat: 31.9539, lng: 35.9106, fiber: 92, congestion: 94, status: "critical" }]);
-    expect(result.source).toBe("operational-preview");
-    expect(result.opportunities[0]).toMatchObject({ region: "Amman West", recommendedAction: "Fiber Migration" });
-  });
 });
 
 const getPersistedInfrastructureOperations = vi.hoisted(() => vi.fn());
@@ -36,11 +31,5 @@ describe("infrastructure.operations procedure", () => {
     const result = await appRouter.createCaller(context()).infrastructure.operations();
     expect(result.source).toBe("persisted");
     expect(result.opportunities[0]?.recommendedAction).toBe("Fiber Migration");
-  });
-  it("falls back to operational infrastructure preview", async () => {
-    getPersistedInfrastructureOperations.mockResolvedValueOnce(null);
-    const result = await appRouter.createCaller(context()).infrastructure.operations();
-    expect(result.source).toBe("operational-preview");
-    expect(result.summary.fiberNodes).toBeGreaterThan(0);
   });
 });
