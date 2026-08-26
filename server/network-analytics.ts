@@ -35,7 +35,7 @@ export type NetworkSite = {
 };
 
 export type NetworkOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: {
     sites: number;

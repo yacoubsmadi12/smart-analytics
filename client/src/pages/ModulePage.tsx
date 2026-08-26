@@ -97,29 +97,6 @@ function downloadDatasetTemplate(dataset: DatasetDefinition) {
   URL.revokeObjectURL(url);
 }
 
-export function buildSyntheticNetworkDemoRows(count = 5250) {
-  const regions = ["North", "Central", "South", "East", "West"];
-  const statuses = ["healthy", "healthy", "healthy", "warning", "critical"];
-  return Array.from({ length: count }, (_, index) => {
-    const number = index + 1;
-    const latitude = (31.15 + ((number * 0.0137) % 3.2)).toFixed(6);
-    const longitude = (35.55 + ((number * 0.0191) % 3.1)).toFixed(6);
-    return [`SYN-${String(number).padStart(5, "0")}`, `Synthetic Tower ${String(number).padStart(5, "0")}`, regions[index % regions.length], latitude, longitude, statuses[index % statuses.length]].join(",");
-  });
-}
-
-function downloadSyntheticNetworkDemo(count = 5250) {
-  const headers = ["site_code", "name", "region", "latitude", "longitude", "status"];
-  const rows = buildSyntheticNetworkDemoRows(count);
-  const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `synthetic-network-demo-${count}-towers.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function DataSourceConsole() {
   const [datasetKey, setDatasetKey] = useState(DATASET_DEFINITIONS[0].key);
   const dataset = DATASET_DEFINITIONS.find(item => item.key === datasetKey) ?? DATASET_DEFINITIONS[0];
@@ -201,7 +178,7 @@ function DataSourceConsole() {
           <button type="button" className="action-chip" onClick={() => downloadDatasetTemplate(dataset)}>Download template</button>
           <div className="dataset-doc-grid"><div><b>Required fields</b><span>{dataset.required.join(" · ")}</span></div><div><b>Optional fields</b><span>{dataset.optional.join(" · ") || "None documented"}</span></div><div><b>Accepted intake</b><span>{dataset.formats}</span></div><div><b>Relationships</b><span>{dataset.relationships.join(" · ")}</span></div><div><b>Used by</b><span>{dataset.consumers.join(" · ")}</span></div></div>
         </div>
-        {datasetKey === "network-sites" && <div className="synthetic-demo-card"><div><span className="section-kicker">ISOLATED TEST DATA</span><h2>Synthetic Network Demo</h2><p>Generate a clearly labelled CSV with 5,250 synthetic towers for load testing and upload-flow validation. It is not inserted into live analytics automatically.</p></div><div className="synthetic-demo-actions"><button type="button" className="action-chip" onClick={() => window.location.href = "/synthetic-demo"}>Open live demo</button><button type="button" className="action-chip" onClick={() => downloadSyntheticNetworkDemo(5250)}>Generate 5,250 towers</button></div></div>}
+
       </section>
       <div className="module-subhead">
         <b>Connected sources</b>

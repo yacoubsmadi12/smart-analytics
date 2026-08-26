@@ -6,6 +6,7 @@ export type CustomerAreaInput = {
   region: string;
   customers: number;
   enterpriseCustomers: number;
+  smeCustomers?: number;
   highValueCustomers: number;
   highChurnCustomers: number;
   churnRisk: number;
@@ -20,9 +21,9 @@ export type CustomerAreaInput = {
 
 export type CustomerCluster = { id: string; areaId: string; latitude: number; longitude: number; customers: number; segment: "high_value" | "high_churn"; nearCongestedCell: boolean; radiusMeters: number };
 
-export type CustomerArea = CustomerAreaInput & {
-  consumerCustomers: number;
+export type CustomerArea = Omit<CustomerAreaInput, "smeCustomers"> & {
   smeCustomers: number | null;
+  consumerCustomers: number;
   customerImpact: number;
   segmentMix: { consumer: number; enterprise: number; sme: number | null; highValue: number; highChurn: number };
   nearCongestedCell: boolean;
@@ -30,7 +31,7 @@ export type CustomerArea = CustomerAreaInput & {
 };
 
 export type CustomerOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: { totalCustomers: number; customerDensity: number | null; enterpriseCustomers: number; smeCustomers: number | null; highValueCustomers: number; highChurnCustomers: number; areas: number; nearCongestedHighValue: number };
   areas: CustomerArea[];
@@ -40,7 +41,8 @@ export function buildCustomerArea(input: CustomerAreaInput): CustomerArea {
   const enterpriseCustomers = Math.min(input.customers, Math.max(0, input.enterpriseCustomers));
   const highValueCustomers = Math.min(input.customers, Math.max(0, input.highValueCustomers));
   const highChurnCustomers = Math.min(input.customers, Math.max(0, input.highChurnCustomers));
-  const consumerCustomers = Math.max(0, input.customers - enterpriseCustomers);
+  const smeCustomers = input.smeCustomers === undefined ? null : Math.min(Math.max(0, input.customers - enterpriseCustomers), Math.max(0, input.smeCustomers));
+  const consumerCustomers = Math.max(0, input.customers - enterpriseCustomers - (smeCustomers ?? 0));
   const nearCongestedCell = input.congestedCells > 0;
   const customerImpact = Math.round(input.customers * Math.min(0.9, Math.max(0.04, (input.churnRisk / 100) + (input.complaints ?? 0) / Math.max(1, input.customers) * 0.4)));
   return {
@@ -49,9 +51,9 @@ export function buildCustomerArea(input: CustomerAreaInput): CustomerArea {
     highValueCustomers,
     highChurnCustomers,
     consumerCustomers,
-    smeCustomers: null,
+    smeCustomers,
     customerImpact,
-    segmentMix: { consumer: consumerCustomers, enterprise: enterpriseCustomers, sme: null, highValue: highValueCustomers, highChurn: highChurnCustomers },
+    segmentMix: { consumer: consumerCustomers, enterprise: enterpriseCustomers, sme: smeCustomers, highValue: highValueCustomers, highChurn: highChurnCustomers },
     nearCongestedCell,
     // Customer coordinates are not part of the current source schema, so no spatial cluster is invented.
     customerClusters: [],

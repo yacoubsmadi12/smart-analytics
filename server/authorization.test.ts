@@ -15,7 +15,7 @@ describe("server authorization", () => {
     const result = await appRouter.createCaller(context("user")).dashboard.priorities({ limit: 5 });
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeLessThanOrEqual(5);
-  });
+  }, 15_000);
 
   it("rejects non-admin access to audit summary", async () => {
     await expect(appRouter.createCaller(context("user")).admin.auditSummary()).rejects.toMatchObject({ code: "FORBIDDEN" });

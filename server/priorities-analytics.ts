@@ -15,7 +15,7 @@ export type PriorityInput = {
 };
 
 export type PriorityItem = PriorityInput & { rank: number; impactScore: number };
-export type PrioritiesOperations = { source: "persisted"; updatedAt: string; summary: { count: number; critical: number; affectedCustomers: number; revenueRisk: number; highestScore: number }; priorities: PriorityItem[] };
+export type PrioritiesOperations = { source: "persisted" | "synthetic"; updatedAt: string; summary: { count: number; critical: number; affectedCustomers: number; revenueRisk: number; highestScore: number }; priorities: PriorityItem[] };
 
 export function calculateImpactScore(input: PriorityInput) {
   const financial = Math.min(35, input.revenueRisk / 10000);

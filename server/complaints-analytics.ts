@@ -43,7 +43,7 @@ export type ComplaintHotspot = {
 };
 
 export type ComplaintOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: {
     totalComplaints: number;

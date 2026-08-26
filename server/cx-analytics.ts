@@ -33,7 +33,7 @@ export type CustomerExperienceArea = CustomerExperienceAreaInput & {
 };
 
 export type CustomerExperienceOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: {
     cxRisk: number;

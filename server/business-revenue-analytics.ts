@@ -16,7 +16,7 @@ export type BusinessRevenueInput = {
 
 export type BusinessRevenueArea = BusinessRevenueInput & { riskShare: number };
 export type BusinessRevenueOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: { revenueAtRisk: number; customersAtRisk: number; enterpriseImpact: number; salesPipeline: number; revenueOpportunity: number | null; investmentOpportunity: number | null; areasAtRisk: number };
   areas: BusinessRevenueArea[];

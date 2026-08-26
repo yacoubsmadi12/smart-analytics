@@ -22,7 +22,7 @@ export type MarketingCampaign = MarketingCampaignInput & {
 };
 
 export type MarketingOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: { campaigns: number; totalBudget: number; averageConversion: number; fiveGPotential: number | null; riskCampaigns: number; targetAreas: number };
   campaigns: MarketingCampaign[];

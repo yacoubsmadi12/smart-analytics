@@ -21,7 +21,7 @@ export type SalesOpportunity = SalesOpportunityInput & {
 };
 
 export type SalesOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: { opportunities: number; pipelineValue: number; weightedPipeline: number; enterpriseOpportunities: number; networkAtRisk: number; fiberReady: number };
   stages: Array<{ stage: string; count: number; value: number; share: number }>;

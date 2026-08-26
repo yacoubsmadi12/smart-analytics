@@ -321,3 +321,10 @@
 - [x] Add a prominent Open Synthetic Demo action to the empty source-backed Command Center
 - [x] Verify the action opens the populated demo while the source-backed workspace remains clearly separated
 - [x] Run tests/build, save a checkpoint, and push the entry-point fix to GitHub
+
+# Direct Synthetic Data Visibility Update
+
+- [x] Remove the Open Synthetic Demo entry point and standalone-demo promotion from the source-backed Command Center
+- [x] Make the isolated synthetic network data visible directly in the operational department sections with clear synthetic labels
+- [x] Preserve strict isolation so synthetic records are never inserted into or mixed with production source tables
+- [x] Verify department views and responsive layouts, run tests/typecheck/build, save a checkpoint, and push changes to GitHub

@@ -42,7 +42,7 @@ type NetworkCell = {
 };
 
 type NetworkOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: {
     sites: number;
@@ -165,7 +165,7 @@ export default function NetworkPage() {
       </section>
 
       <section className="network-source-strip">
-        <div><span className="network-live-dot" /> <b>Persisted operational data</b><span>Updated {formatUpdatedAt(operations.updatedAt)}</span></div>
+        <div><span className="network-live-dot" /> <b>{operations.source === "synthetic" ? "Synthetic network dataset" : "Persisted operational data"}</b><span>Updated {formatUpdatedAt(operations.updatedAt)}</span></div>
         <span className="network-source-note">Network engineers · {operations.summary.cells} cells monitored</span>
       </section>
 

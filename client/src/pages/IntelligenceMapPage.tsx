@@ -126,6 +126,8 @@ function IntelligenceMapPage() {
   });
 
   const sites = (sitesQuery.data || []) as MapSite[];
+  const isSyntheticMap = sites[0]?.id.startsWith("SYN-") ?? false;
+  const mapRenderSites = useMemo(() => isSyntheticMap ? sites.filter((_, index) => index % 16 === 0) : sites, [isSyntheticMap, sites]);
   const selectedSite = (selectedDetailsQuery.data || sites.find(site => site.id === selectedSiteId) || null) as MapSite | null;
   const mapCenter = sites[0] ? { lat: sites[0].lat, lng: sites[0].lng } : { lat: 0, lng: 0 };
   const filteredSites = useMemo(() => {
@@ -135,6 +137,7 @@ function IntelligenceMapPage() {
       (!term || `${site.id} ${site.name}`.toLowerCase().includes(term)),
     );
   }, [search, sites, statusFilter]);
+  const listSites = filteredSites.slice(0, 140);
   const fallbackPosition = (site: MapSite) => ({
     left: `${Math.max(7, Math.min(93, ((site.lng - 34.75) / 2.1) * 100))}%`,
     top: `${Math.max(10, Math.min(90, ((33.2 - site.lat) / 4.2) * 100))}%`,
@@ -150,10 +153,10 @@ function IntelligenceMapPage() {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !sites.length) return;
+    if (!map || !mapRenderSites.length) return;
     const markers: google.maps.Marker[] = [];
     const circles: google.maps.Circle[] = [];
-    sites.forEach(site => {
+    mapRenderSites.forEach(site => {
       const marker = new google.maps.Marker({
         map: layers.sites ? map : null,
         position: { lat: site.lat, lng: site.lng },
@@ -197,7 +200,7 @@ function IntelligenceMapPage() {
       markers.forEach(marker => marker.setMap(null));
       circles.forEach(circle => circle.setMap(null));
     };
-  }, [layers, mapReady, selectedSiteId, sites]);
+  }, [layers, mapReady, selectedSiteId, mapRenderSites]);
 
   if (!permissionsQuery.data) return <div className="auth-loading">Loading protected map…</div>;
   if (!permissionsQuery.data.grants.includes("map.view")) {
@@ -219,7 +222,7 @@ function IntelligenceMapPage() {
         <div><strong>{sites.length}</strong><span>mapped sites</span></div>
         <div><strong>{sites.filter(site => site.status === "critical").length}</strong><span>critical sites</span></div>
         <div><strong>{formatMoney(sites.reduce((total, site) => total + site.revenueRisk, 0))}</strong><span>revenue risk visible</span></div>
-        <div className="map-command-status"><span className="pulse" /> Live operational data</div>
+        <div className="map-command-status"><span className="pulse" /> {isSyntheticMap ? "Synthetic network data" : "Live operational data"}</div>
       </section>
       <section className="intelligence-map-workspace">
         <aside className="map-control-panel">
@@ -227,11 +230,11 @@ function IntelligenceMapPage() {
           <label className="map-search"><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search site ID or name" /></label>
           <div className="map-filter-row">{(["all", "healthy", "warning", "critical"] as StatusFilter[]).map(status => <button key={status} className={statusFilter === status ? "selected" : ""} onClick={() => setStatusFilter(status)}>{status === "all" ? "All" : status}</button>)}</div>
           {showLayers && <div className="map-layer-list"><div className="map-layer-list-head"><span>Visible overlays</span><small>{Object.values(layers).filter(Boolean).length}/9 active</small></div>{layerDefinitions.map(layer => { const Icon = layer.icon; return <label className="map-layer-toggle" key={layer.key}><input type="checkbox" checked={layers[layer.key]} onChange={event => setLayers(previous => ({ ...previous, [layer.key]: event.target.checked }))} /><span className="layer-swatch" style={{ background: layer.color, boxShadow: `0 0 10px ${layer.color}` }} /><Icon size={14} /><span>{layer.label}</span></label>; })}</div>}
-          <div className="map-site-list"><div className="map-layer-list-head"><span>Sites in view</span><small>{filteredSites.length} shown</small></div>{sitesQuery.isLoading ? <div className="module-state compact"><Loader2 size={15} className="spin" /> Loading sites…</div> : sitesQuery.error ? <div className="module-feedback error">Map data is unavailable. Refresh and try again.</div> : filteredSites.map(site => <button key={site.id} className={`map-site-list-item ${selectedSiteId === site.id ? "selected" : ""}`} onClick={() => selectSite(site)}><span className="map-site-dot" style={{ background: statusColors[site.status] }} /><span><b>{site.id}</b><small>{site.name}</small></span><em>{site.status}</em></button>)}</div>
+          <div className="map-site-list"><div className="map-layer-list-head"><span>Sites in view</span><small>{filteredSites.length} total · {listSites.length} shown</small></div>{sitesQuery.isLoading ? <div className="module-state compact"><Loader2 size={15} className="spin" /> Loading sites…</div> : sitesQuery.error ? <div className="module-feedback error">Map data is unavailable. Refresh and try again.</div> : listSites.map(site => <button key={site.id} className={`map-site-list-item ${selectedSiteId === site.id ? "selected" : ""}`} onClick={() => selectSite(site)}><span className="map-site-dot" style={{ background: statusColors[site.status] }} /><span><b>{site.id}</b><small>{site.name}</small></span><em>{site.status}</em></button>)}</div>
         </aside>
         <section className="map-visual-panel">
           <div className="map-visual-head"><div><span className="section-kicker">LIVE GIS CANVAS</span><h2>Network footprint</h2></div><div className="map-mode-readout"><RadioTower size={14} /> {layers.sites ? "Site markers" : "Overlay view"}</div></div>
-          <div className="map-canvas-shell">{sites.length ? <MapView key={mapRetry} className="intelligence-map-canvas" initialCenter={mapCenter} initialZoom={8} onMapReady={map => { mapRef.current = map; setMapError(null); setMapReady(true); }} onMapError={error => { setMapReady(false); setMapError(error.message); }} /> : <div className="module-state"><MapPin size={20} /><b>No source-backed sites available</b><span>Import a Network Sites dataset to activate the GIS canvas.</span></div>}{mapError && <div className="gis-fallback-map"><div className="gis-fallback-grid" />{filteredSites.map(site => <button key={site.id} className={`gis-fallback-marker ${selectedSiteId === site.id ? "selected" : ""}`} style={fallbackPosition(site)} onClick={() => selectSite(site)}><span style={{ background: statusColors[site.status] }} /><small>{site.id}</small></button>)}<div className="gis-fallback-label"><AlertTriangle size={14} /><span>Google Maps unavailable · source coordinate view</span></div></div>}{selectedSite && <div className="map-selected-pill"><MapPin size={13} /> {selectedSite.id} · {selectedSite.name}<button onClick={() => setSelectedSiteId(null)} aria-label="Clear selected site"><X size={13} /></button></div>}{!mapReady && <div className={`map-loading ${mapError ? "map-loading-error" : ""}`}>{mapError ? <><AlertTriangle size={20} /><b>GIS canvas unavailable</b><span>{mapError}</span><button onClick={() => { setMapError(null); setMapReady(false); setMapRetry(value => value + 1); }}>Retry map connection</button></> : <><Loader2 size={18} className="spin" /> Initializing secure GIS canvas…</>}</div>}</div>
+          <div className="map-canvas-shell">{sites.length ? <MapView key={mapRetry} className="intelligence-map-canvas" initialCenter={mapCenter} initialZoom={8} onMapReady={map => { mapRef.current = map; setMapError(null); setMapReady(true); }} onMapError={error => { setMapReady(false); setMapError(error.message); }} /> : <div className="module-state"><MapPin size={20} /><b>No sites available</b><span>Connect or import a Network Sites dataset to activate the GIS canvas.</span></div>}{mapError && <div className="gis-fallback-map"><div className="gis-fallback-grid" />{mapRenderSites.map(site => <button key={site.id} className={`gis-fallback-marker ${selectedSiteId === site.id ? "selected" : ""}`} style={fallbackPosition(site)} onClick={() => selectSite(site)}><span style={{ background: statusColors[site.status] }} /><small>{site.id}</small></button>)}<div className="gis-fallback-label"><AlertTriangle size={14} /><span>Google Maps unavailable · source coordinate view</span></div></div>}{selectedSite && <div className="map-selected-pill"><MapPin size={13} /> {selectedSite.id} · {selectedSite.name}<button onClick={() => setSelectedSiteId(null)} aria-label="Clear selected site"><X size={13} /></button></div>}{!mapReady && <div className={`map-loading ${mapError ? "map-loading-error" : ""}`}>{mapError ? <><AlertTriangle size={20} /><b>GIS canvas unavailable</b><span>{mapError}</span><button onClick={() => { setMapError(null); setMapReady(false); setMapRetry(value => value + 1); }}>Retry map connection</button></> : <><Loader2 size={18} className="spin" /> Initializing secure GIS canvas…</>}</div>}</div>
           <div className="map-legend">{layerDefinitions.filter(layer => layers[layer.key]).slice(0, 6).map(layer => <span key={layer.key}><i style={{ background: layer.color }} />{layer.label}</span>)}</div>
         </section>
         <aside className="site-intelligence-panel">

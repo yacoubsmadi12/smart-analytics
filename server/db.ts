@@ -28,6 +28,7 @@ import { assembleBusinessRevenueOperations } from "./business-revenue-analytics"
 import { assemblePrioritiesOperations, type PriorityInput } from "./priorities-analytics";
 import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
 import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
+import { buildSyntheticBusinessRevenue, buildSyntheticComplaints, buildSyntheticCustomerExperience, buildSyntheticCustomers, buildSyntheticDashboardSummary, buildSyntheticInfrastructure, buildSyntheticMarketing, buildSyntheticNetworkOperations, buildSyntheticPriorities, buildSyntheticSales, syntheticMapSites } from "./synthetic-operations";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -46,23 +47,28 @@ export async function getDb() {
 
 export async function getPersistedDashboardSummary() {
   const db = await getDb();
-  if (!db) return null;
-  const [network, sites, customerCount, openComplaintCount, risk, revenueRisk] = await Promise.all([
-    db.select({ value: sql<string>`avg(${networkKpis.availability})` }).from(networkKpis),
-    db.select({ value: sql<number>`count(distinct ${networkKpis.siteId})` }).from(networkKpis),
-    db.select({ value: sql<number>`count(*)` }).from(customers),
-    db.select({ value: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`),
-    db.select({ value: sql<string>`avg(${customers.churnRisk})` }).from(customers),
-    db.select({ value: sql<string>`sum(${revenues.atRisk})` }).from(revenues),
-  ]);
-  const numberValue = (value: unknown) => Number(value || 0);
-  const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0 };
-  return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : null;
+  if (!db) return buildSyntheticDashboardSummary();
+  try {
+    const [network, sites, customerCount, openComplaintCount, risk, revenueRisk] = await Promise.all([
+      db.select({ value: sql<string>`avg(${networkKpis.availability})` }).from(networkKpis),
+      db.select({ value: sql<number>`count(distinct ${networkKpis.siteId})` }).from(networkKpis),
+      db.select({ value: sql<number>`count(*)` }).from(customers),
+      db.select({ value: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`),
+      db.select({ value: sql<string>`avg(${customers.churnRisk})` }).from(customers),
+      db.select({ value: sql<string>`sum(${revenues.atRisk})` }).from(revenues),
+    ]);
+    const numberValue = (value: unknown) => Number(value || 0);
+    const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0, source: "persisted" as const };
+    return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : buildSyntheticDashboardSummary();
+  } catch (error) {
+    console.warn("[Database] Dashboard summary query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticDashboardSummary();
+  }
 }
 
 export async function getPersistedMapSites() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return syntheticMapSites();
   try {
     const [siteRows, cellRows, kpiRows, complaintRows, customerRows, fiberRows, salesRows, revenueRows] = await Promise.all([
       db.select().from(sites),
@@ -74,7 +80,7 @@ export async function getPersistedMapSites() {
       db.select({ region: salesOpportunities.region, total: sql<number>`count(*)` }).from(salesOpportunities).groupBy(salesOpportunities.region),
       db.select({ region: revenues.region, atRisk: sql<string>`sum(${revenues.atRisk})` }).from(revenues).groupBy(revenues.region),
     ]);
-    if (!siteRows.length) return null;
+    if (!siteRows.length) return syntheticMapSites();
     const numberValue = (value: unknown) => Number(value ?? 0);
     const average = (values: unknown[]) => values.length ? values.reduce<number>((sum, value) => sum + numberValue(value), 0) / values.length : 0;
     const complaintsBySite = new Map(complaintRows.filter(row => row.siteId !== null).map(row => [row.siteId as number, numberValue(row.total)]));
@@ -117,14 +123,14 @@ export async function getPersistedMapSites() {
       } as const;
     });
   } catch (error) {
-    console.warn("[Database] Map sites query unavailable:", error);
-    return null;
+    console.warn("[Database] Map sites query unavailable; using isolated synthetic dataset:", error);
+    return syntheticMapSites();
   }
 }
 
 export async function getPersistedNetworkOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticNetworkOperations();
   try {
     const [cellRows, kpiRows, complaintRows, customerRows, fiberRows] = await Promise.all([
       db.select({ cell: cells, site: sites }).from(cells).leftJoin(sites, eq(cells.siteId, sites.id)),
@@ -133,7 +139,7 @@ export async function getPersistedNetworkOperations() {
       db.select({ region: customers.region, total: sql<number>`count(*)` }).from(customers).groupBy(customers.region),
       db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
-    if (!cellRows.length) return null;
+    if (!cellRows.length) return buildSyntheticNetworkOperations();
     const numberValue = (value: unknown) => Number(value || 0);
     const latestKpi = new Map<number, typeof kpiRows[number]>();
     kpiRows.forEach(row => { if (!latestKpi.has(row.siteId)) latestKpi.set(row.siteId, row); });
@@ -185,14 +191,14 @@ export async function getPersistedNetworkOperations() {
     }
     return result;
   } catch (error) {
-    console.warn("[Database] Network operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Network operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticNetworkOperations();
   }
 }
 
 export async function getPersistedCustomerExperience() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticCustomerExperience();
   try {
     const [customerRows, complaintRows, kpiRows, fiberRows] = await Promise.all([
       db.select({ region: customers.region, customers: sql<number>`count(*)`, churnRisk: sql<string>`avg(${customers.churnRisk})` }).from(customers).groupBy(customers.region),
@@ -200,7 +206,7 @@ export async function getPersistedCustomerExperience() {
       db.select({ region: sites.region, availability: sql<string>`avg(${networkKpis.availability})`, congestion: sql<string>`avg(${networkKpis.congestion})`, throughput: sql<string>`avg(${networkKpis.throughputMbps})` }).from(networkKpis).leftJoin(sites, eq(networkKpis.siteId, sites.id)).groupBy(sites.region),
       db.select({ region: fiberInfrastructure.region, fiber: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
-    if (!customerRows.length || !kpiRows.length) return null;
+    if (!customerRows.length || !kpiRows.length) return buildSyntheticCustomerExperience();
     const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };
     const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
     const kpiByRegion = new Map(kpiRows.flatMap(row => {
@@ -222,14 +228,14 @@ export async function getPersistedCustomerExperience() {
     });
     return assembleCustomerExperience("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Customer experience query unavailable:", error);
-    return null;
+    console.warn("[Database] Customer experience query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticCustomerExperience();
   }
 }
 
 export async function getPersistedCustomerOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticCustomers();
   try {
     const [customerRows, complaintRows, siteRows, kpiRows] = await Promise.all([
       db.select({ region: customers.region, customers: sql<number>`count(*)`, enterpriseCustomers: sql<number>`sum(case when ${customers.segment} = 'enterprise' then 1 else 0 end)`, highValueCustomers: sql<number>`sum(case when ${customers.segment} = 'high_value' then 1 else 0 end)`, highChurnCustomers: sql<number>`sum(case when ${customers.churnRisk} >= 7 then 1 else 0 end)`, churnRisk: sql<string>`avg(${customers.churnRisk})` }).from(customers).groupBy(customers.region),
@@ -237,7 +243,7 @@ export async function getPersistedCustomerOperations() {
       db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
       db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
     ]);
-    if (!customerRows.length || !siteRows.length) return null;
+    if (!customerRows.length || !siteRows.length) return buildSyntheticCustomers();
     const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };
     const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
     const kpiBySite = new Map(kpiRows.flatMap(row => {
@@ -256,20 +262,20 @@ export async function getPersistedCustomerOperations() {
     });
     return assembleCustomerOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Customer operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Customer operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticCustomers();
   }
 }
 
 export async function getPersistedComplaintOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticComplaints();
   try {
     const [complaintRows, cellRows] = await Promise.all([
       db.select({ complaint: complaints, site: sites, customer: customers }).from(complaints).leftJoin(sites, eq(complaints.siteId, sites.id)).leftJoin(customers, eq(complaints.customerId, customers.id)),
       db.select({ siteId: cells.siteId, cellCode: cells.cellCode, congestion: cells.congestion, availability: cells.availability }).from(cells),
     ]);
-    if (!complaintRows.length) return null;
+    if (!complaintRows.length) return buildSyntheticComplaints();
     const numberValue = (value: unknown) => Number(value ?? 0);
     const worstCellsBySite = new Map<number, string[]>();
     cellRows.forEach(row => {
@@ -300,8 +306,8 @@ export async function getPersistedComplaintOperations() {
     });
     return assembleComplaintOperations("persisted", records);
   } catch (error) {
-    console.warn("[Database] Complaint operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Complaint operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticComplaints();
   }
 }
 
@@ -666,14 +672,14 @@ export async function listImportRuns(userId: number, datasetKey?: string) {
 
 export async function getPersistedInfrastructureOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticInfrastructure();
   try {
     const [fiberRows, siteRows, cellRows] = await Promise.all([
       db.select().from(fiberInfrastructure),
       db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
       db.select({ siteId: cells.siteId, congestion: cells.congestion }).from(cells),
     ]);
-    if (!fiberRows.length) return null;
+    if (!fiberRows.length) return buildSyntheticInfrastructure();
     const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : null; };
     const congestionByRegion = new Map<string, number[]>();
     cellRows.forEach(row => {
@@ -699,15 +705,15 @@ export async function getPersistedInfrastructureOperations() {
     });
     return assembleInfrastructureOperations("persisted", records);
   } catch (error) {
-    console.warn("[Database] Infrastructure operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Infrastructure operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticInfrastructure();
   }
 }
 
 
 export async function getPersistedSalesOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticSales();
   try {
     const [opportunityRows, customerRows, siteRows, kpiRows, fiberRows] = await Promise.all([
       db.select().from(salesOpportunities),
@@ -716,7 +722,7 @@ export async function getPersistedSalesOperations() {
       db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
       db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
-    if (!opportunityRows.length) return null;
+    if (!opportunityRows.length) return buildSyntheticSales();
     const numberValue = (value: unknown) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
     const kpiBySite = new Map(kpiRows.flatMap(row => {
       const congestion = numberValue(row.congestion);
@@ -739,15 +745,15 @@ export async function getPersistedSalesOperations() {
     });
     return assembleSalesOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Sales operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Sales operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticSales();
   }
 }
 
 
 export async function getPersistedMarketingOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticMarketing();
   try {
     const [campaignRows, customerRows, complaintRows, siteRows, kpiRows, fiberRows] = await Promise.all([
       db.select().from(marketingCampaigns),
@@ -757,7 +763,7 @@ export async function getPersistedMarketingOperations() {
       db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
       db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
     ]);
-    if (!campaignRows.length) return null;
+    if (!campaignRows.length) return buildSyntheticMarketing();
     const numberValue = (value: unknown) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
     const customersByRegion = new Map<string, typeof customerRows>();
     for (const customer of customerRows) { if (!customer.region) continue; customersByRegion.set(customer.region, [...(customersByRegion.get(customer.region) ?? []), customer]); }
@@ -780,15 +786,15 @@ export async function getPersistedMarketingOperations() {
     });
     return assembleMarketingOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Marketing operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Marketing operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticMarketing();
   }
 }
 
 
 export async function getPersistedBusinessRevenueOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticBusinessRevenue();
   try {
     const [revenueRows, customerRows, complaintRows, siteRows, kpiRows, salesRows] = await Promise.all([
       db.select().from(revenues),
@@ -798,7 +804,7 @@ export async function getPersistedBusinessRevenueOperations() {
       db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
       db.select({ region: salesOpportunities.region, value: sql<string>`sum(${salesOpportunities.value})` }).from(salesOpportunities).groupBy(salesOpportunities.region),
     ]);
-    if (!revenueRows.length) return null;
+    if (!revenueRows.length) return buildSyntheticBusinessRevenue();
     const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
     const customersByRegion = new Map<string, typeof customerRows>();
     for (const customer of customerRows) { const key = customer.region ?? "Unmapped region"; customersByRegion.set(key, [...(customersByRegion.get(key) ?? []), customer]); }
@@ -821,15 +827,15 @@ export async function getPersistedBusinessRevenueOperations() {
     });
     return assembleBusinessRevenueOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Business & Revenue operations query unavailable:", error);
-    return null;
+    console.warn("[Database] Business & Revenue operations query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticBusinessRevenue();
   }
 }
 
 
 export async function getPersistedPrioritiesOperations() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return buildSyntheticPriorities();
   try {
     const [siteRows, kpiRows, customerRows, complaintRows, revenueRows, salesRows, fiberRows] = await Promise.all([
       db.select({ id: sites.id, name: sites.name, region: sites.region }).from(sites),
@@ -840,7 +846,7 @@ export async function getPersistedPrioritiesOperations() {
       db.select({ region: salesOpportunities.region, value: salesOpportunities.value }).from(salesOpportunities),
       db.select({ region: fiberInfrastructure.region, availability: fiberInfrastructure.availability }).from(fiberInfrastructure),
     ]);
-    if (!siteRows.length) return null;
+    if (!siteRows.length) return buildSyntheticPriorities();
     const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
     const kpiBySite = new Map(kpiRows.flatMap(row => {
       const congestion = Number(row.congestion);
@@ -872,10 +878,10 @@ export async function getPersistedPrioritiesOperations() {
       if (complaintCount >= 3) items.push({ id: `${site.id}-complaints`, region, issue: "High complaints", category: "customer", score: Math.min(100, complaintCount * 8), severity: complaintCount >= 10 ? "high" : "medium", affectedCustomers, revenueRisk: Math.round(revenueRisk * 0.42), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Network Investigation", rationale: `${complaintCount} open complaints are concentrated around this site.` });
       return items;
     });
-    return inputs.length ? assemblePrioritiesOperations("persisted", inputs) : null;
+    return inputs.length ? assemblePrioritiesOperations("persisted", inputs) : buildSyntheticPriorities();
   } catch (error) {
-    console.warn("[Database] Priorities query unavailable:", error);
-    return null;
+    console.warn("[Database] Priorities query unavailable; using isolated synthetic dataset:", error);
+    return buildSyntheticPriorities();
   }
 }
 

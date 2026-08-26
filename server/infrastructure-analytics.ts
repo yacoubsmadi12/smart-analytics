@@ -20,7 +20,7 @@ export type FiberOpportunity = InfrastructureRecord & {
 };
 
 export type InfrastructureOperations = {
-  source: "persisted";
+  source: "persisted" | "synthetic";
   updatedAt: string;
   summary: {
     fiberNodes: number;
