@@ -315,3 +315,9 @@
 - [x] Add clear exit/reset controls and source labels so demo data cannot be mistaken for live data
 - [x] Add tests for demo record counts, relationships, labeling, and production isolation
 - [x] Verify the demo visually on desktop/mobile, run checks/tests/build, save a checkpoint, and push changes to GitHub
+
+# Demo Entry Point Fix
+
+- [x] Add a prominent Open Synthetic Demo action to the empty source-backed Command Center
+- [x] Verify the action opens the populated demo while the source-backed workspace remains clearly separated
+- [x] Run tests/build, save a checkpoint, and push the entry-point fix to GitHub

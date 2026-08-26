@@ -49,3 +49,5 @@ The independent /intelligence-map route renders the Google Maps canvas after loc
 - Synthetic Demo browser check: local admin login succeeded; the source-backed Command Center still correctly displayed unavailable/empty states when no operational sources were connected, confirming demo data is not mixed into production analytics.
 
 - Authenticated Synthetic Demo verification: the isolated preview page rendered the SYNTHETIC DEMO MODE badge, 5,250 virtual towers, linked virtual metrics for cells/KPI/customers/complaints/revenue, regional health bars, and sample virtual sites. The page explicitly warns that values are not operational and are never written to production tables.
+
+- Demo entry-point fix verification: the empty source-backed Command Center now visibly offers both Open Synthetic Demo and Open Data Management. Clicking Open Synthetic Demo navigated successfully to /synthetic-demo, where the populated isolated preview rendered 5,250 virtual towers and linked demo metrics.
