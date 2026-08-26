@@ -306,3 +306,12 @@
 - [x] Add an explicitly labelled Synthetic Network Demo mode with more than 5,000 towers, isolated from live/source-backed analytics
 - [x] Add tests for dataset-specific routing, documentation contracts, synthetic-data labelling, and source isolation
 - [x] Verify desktop/mobile upload UX, run checks/tests/build, save a checkpoint, and push all changes to GitHub
+
+# Synthetic Demo Mode
+
+- [x] Add an explicit Synthetic Demo entry point with a persistent demo-mode banner
+- [x] Generate a large isolated telecom dataset with more than 5,000 synthetic towers plus linked KPI, customer, complaint, fiber, sales, marketing, revenue, and priority records
+- [x] Render populated demo summaries and tables without writing synthetic records to production database tables
+- [x] Add clear exit/reset controls and source labels so demo data cannot be mistaken for live data
+- [x] Add tests for demo record counts, relationships, labeling, and production isolation
+- [x] Verify the demo visually on desktop/mobile, run checks/tests/build, save a checkpoint, and push changes to GitHub

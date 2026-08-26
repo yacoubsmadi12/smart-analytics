@@ -45,3 +45,7 @@ The independent /intelligence-map route renders the Google Maps canvas after loc
 - In-app Data Management verification shows 0 configured sources and no import runs. The empty state is explicit, and the failed import-history handshake appears as an actionable error with Retry; no fake source or import record is displayed.
 
 - Authenticated Data Management verification: the Dataset workspace selector, per-dataset documentation, template download action, and isolated Synthetic Network Demo card are visible. Network Sites displays the required/optional fields, intake formats, relationships, consuming modules, and the Generate 5,250 towers action. The connected-source state is empty and explicit.
+
+- Synthetic Demo browser check: local admin login succeeded; the source-backed Command Center still correctly displayed unavailable/empty states when no operational sources were connected, confirming demo data is not mixed into production analytics.
+
+- Authenticated Synthetic Demo verification: the isolated preview page rendered the SYNTHETIC DEMO MODE badge, 5,250 virtual towers, linked virtual metrics for cells/KPI/customers/complaints/revenue, regional health bars, and sample virtual sites. The page explicitly warns that values are not operational and are never written to production tables.
