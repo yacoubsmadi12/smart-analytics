@@ -63,7 +63,66 @@ const modules: Record<
   "audit-logs": { title: "Audit Logs", ar: "", eyebrow: "GOVERNANCE TRAIL", summary: "Trace administrative actions recorded by the platform.", metric: "—", metricLabel: "recorded events", rows: [], icon: Activity, grant: "audit.view" },
 };
 
+type DatasetDefinition = {
+  key: string;
+  label: string;
+  section: string;
+  description: string;
+  required: string[];
+  optional: string[];
+  formats: string;
+  relationships: string[];
+  consumers: string[];
+};
+
+export const DATASET_DEFINITIONS: DatasetDefinition[] = [
+  { key: "network-sites", label: "Network Sites", section: "Network", description: "One row per physical tower or site used as the geographic anchor.", required: ["site_code", "name", "latitude", "longitude"], optional: ["region", "status"], formats: "CSV, XLSX, JSON", relationships: ["site_code links cells, KPI, fiber, complaints, sales and revenue"], consumers: ["Intelligence Map", "Network", "CX", "Customers", "Complaints", "Infrastructure", "Sales", "Priorities"] },
+  { key: "network-kpis", label: "Network KPI", section: "Network", description: "Time-stamped radio and core measurements for each site or cell.", required: ["site_code or cell_code", "recorded_at", "availability", "congestion", "throughput"], optional: ["traffic_tb", "coverage"], formats: "CSV, XLSX, JSON, API, MySQL", relationships: ["site_code/cell_code must match Network Sites"], consumers: ["Network", "CX", "Complaints", "Business & Revenue", "Priorities"] },
+  { key: "complaints", label: "Complaints", section: "Customer Experience", description: "Customer-care cases with severity, status, category and an optional site relationship.", required: ["complaint_id", "category", "severity", "status", "created_at"], optional: ["customer_ref", "site_code", "resolved_at"], formats: "CSV, XLSX, JSON, API, SFTP, MySQL", relationships: ["customer_ref links Customers; site_code links Network Sites"], consumers: ["Customer Experience", "Complaints", "Alerts", "Priorities"] },
+  { key: "customers", label: "Customers", section: "Customer Intelligence", description: "Authorized customer or account records used for segment and churn analysis.", required: ["customer_ref", "segment", "region"], optional: ["churn_risk", "lifetime_value", "site_code"], formats: "CSV, XLSX, JSON, API, SFTP, MySQL", relationships: ["customer_ref links Complaints and Sales; site_code links Network Sites"], consumers: ["Customers", "CX", "Complaints", "Sales", "Business & Revenue"] },
+  { key: "fiber-infrastructure", label: "Fiber Infrastructure", section: "Infrastructure / Fiber", description: "Fiber nodes and availability records used to assess migration and build opportunities.", required: ["node_code", "status", "availability"], optional: ["site_code", "latitude", "longitude", "link_count", "planned_upgrade"], formats: "CSV, XLSX, JSON, API, SFTP, MySQL", relationships: ["site_code links Network Sites"], consumers: ["Infrastructure / Fiber", "Network", "Sales", "Priorities"] },
+  { key: "sales-opportunities", label: "Sales Opportunities", section: "Sales", description: "CRM pipeline records with commercial value and network readiness context.", required: ["opportunity_id", "stage", "value", "probability"], optional: ["customer_ref", "site_code", "region"], formats: "CSV, XLSX, JSON, API, SFTP, MySQL", relationships: ["customer_ref links Customers; site_code links Network Sites"], consumers: ["Sales", "Business & Revenue", "Priorities", "Alerts"] },
+  { key: "marketing-campaigns", label: "Marketing Campaigns", section: "Marketing", description: "Campaign performance and target-area records for experience-aware planning.", required: ["campaign_id", "name", "status", "budget"], optional: ["region", "conversion_rate", "customer_segment"], formats: "CSV, XLSX, JSON, API, SFTP, MySQL", relationships: ["region/site_code should align with Network Sites or Customers"], consumers: ["Marketing", "CX", "Customers"] },
+  { key: "revenue-exposure", label: "Revenue Exposure", section: "Business & Revenue", description: "Period-based actual revenue and at-risk exposure records.", required: ["period", "region", "at_risk"], optional: ["actual", "customer_ref", "site_code"], formats: "CSV, XLSX, JSON, API, SFTP, MySQL", relationships: ["region/site_code links Network Sites; customer_ref links Customers"], consumers: ["Business & Revenue", "Priorities", "Alerts", "Executive Overview"] },
+];
+
+function downloadDatasetTemplate(dataset: DatasetDefinition) {
+  const header = dataset.required.join(",");
+  const blob = new Blob([`${header}\n`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${dataset.key}-template.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function buildSyntheticNetworkDemoRows(count = 5250) {
+  const regions = ["North", "Central", "South", "East", "West"];
+  const statuses = ["healthy", "healthy", "healthy", "warning", "critical"];
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    const latitude = (31.15 + ((number * 0.0137) % 3.2)).toFixed(6);
+    const longitude = (35.55 + ((number * 0.0191) % 3.1)).toFixed(6);
+    return [`SYN-${String(number).padStart(5, "0")}`, `Synthetic Tower ${String(number).padStart(5, "0")}`, regions[index % regions.length], latitude, longitude, statuses[index % statuses.length]].join(",");
+  });
+}
+
+function downloadSyntheticNetworkDemo(count = 5250) {
+  const headers = ["site_code", "name", "region", "latitude", "longitude", "status"];
+  const rows = buildSyntheticNetworkDemoRows(count);
+  const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `synthetic-network-demo-${count}-towers.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function DataSourceConsole() {
+  const [datasetKey, setDatasetKey] = useState(DATASET_DEFINITIONS[0].key);
+  const dataset = DATASET_DEFINITIONS.find(item => item.key === datasetKey) ?? DATASET_DEFINITIONS[0];
   const [method, setMethod] = useState<"manual" | "api" | "sftp" | "database">(
     "manual"
   );
@@ -79,7 +138,8 @@ function DataSourceConsole() {
   const [mappingText, setMappingText] = useState("{}");
   const utils = trpc.useUtils();
   const { data: sources, isLoading: sourcesLoading, error: sourcesError, refetch: refetchSources } = trpc.data.sources.useQuery();
-  const { data: runs, isLoading: runsLoading, error: runsError, refetch: refetchRuns } = trpc.data.importRuns.useQuery();
+  const datasetSources = sources?.filter(source => source.datasetKey === datasetKey) ?? [];
+  const { data: runs, isLoading: runsLoading, error: runsError, refetch: refetchRuns } = trpc.data.importRuns.useQuery({ datasetKey });
   const register = trpc.data.registerSource.useMutation({
     onSuccess: () => { showNotice("Source configuration saved. Add credentials through server secrets before connecting.", "success"); void utils.data.sources.invalidate(); },
     onError: e => showNotice("Source configuration could not be saved. Check the source name and connection reference, then retry.", "error"),
@@ -120,8 +180,9 @@ function DataSourceConsole() {
     const reader = new FileReader();
     reader.onload = () =>
       upload.mutate({
-        sourceName: sourceName.trim(),
-        fileName: file.name,
+              datasetKey,
+              sourceName: sourceName.trim(),
+              fileName: file.name,
         mimeType: file.type || "application/octet-stream",
         base64:
           String(reader.result || "")
@@ -132,6 +193,16 @@ function DataSourceConsole() {
   };
   return (
     <div className="standalone-data-console">
+      <section className="dataset-workspace-selector">
+        <div className="module-subhead"><b>Dataset workspace</b><span>Each section has its own source boundary</span></div>
+        <label className="dataset-select-label"><span>Choose the dataset you want to load</span><select value={datasetKey} onChange={event => { setDatasetKey(event.target.value); setSchemaPreview([]); setRowErrors([]); setLastRunId(0); }} aria-label="Dataset workspace">{DATASET_DEFINITIONS.map(item => <option value={item.key} key={item.key}>{item.section} · {item.label}</option>)}</select></label>
+        <div className="dataset-documentation">
+          <div><span className="section-kicker">DATA DOCUMENTATION</span><h2>{dataset.label}</h2><p>{dataset.description}</p></div>
+          <button type="button" className="action-chip" onClick={() => downloadDatasetTemplate(dataset)}>Download template</button>
+          <div className="dataset-doc-grid"><div><b>Required fields</b><span>{dataset.required.join(" · ")}</span></div><div><b>Optional fields</b><span>{dataset.optional.join(" · ") || "None documented"}</span></div><div><b>Accepted intake</b><span>{dataset.formats}</span></div><div><b>Relationships</b><span>{dataset.relationships.join(" · ")}</span></div><div><b>Used by</b><span>{dataset.consumers.join(" · ")}</span></div></div>
+        </div>
+        {datasetKey === "network-sites" && <div className="synthetic-demo-card"><div><span className="section-kicker">ISOLATED TEST DATA</span><h2>Synthetic Network Demo</h2><p>Generate a clearly labelled CSV with 5,250 synthetic towers for load testing and upload-flow validation. It is not inserted into live analytics automatically.</p></div><button type="button" className="action-chip" onClick={() => downloadSyntheticNetworkDemo(5250)}>Generate 5,250 towers</button></div>}
+      </section>
       <div className="module-subhead">
         <b>Connected sources</b>
         <span className={sourcesLoading ? "loading-inline" : ""}>
@@ -145,13 +216,13 @@ function DataSourceConsole() {
           <button type="button" onClick={() => refetchSources()}>Retry</button>
         </div>
       )}
-      {!sourcesLoading && !sourcesError && !sources?.length && (
+      {!sourcesLoading && !sourcesError && !datasetSources.length && (
         <div className="module-state">
           No source has been configured yet. Add your first API, SFTP, database,
           or file source below.
         </div>
       )}
-      {sources?.map(source => {
+      {datasetSources.map(source => {
         const statusKey = source.status.toLowerCase().replace(/\s+/g, "-");
         const sourceType = source.type.toLowerCase();
         return (
@@ -180,7 +251,7 @@ function DataSourceConsole() {
           <input
             value={sourceName}
             onChange={e => setSourceName(e.target.value)}
-            placeholder="Network OSS / CRM / Fiber"
+            placeholder={`${dataset.label} source name`}
           />
         </label>
         <label>
@@ -235,6 +306,7 @@ function DataSourceConsole() {
           disabled={!sourceName.trim() || register.isPending}
           onClick={() =>
             register.mutate({
+              datasetKey,
               name: sourceName.trim(),
               type: method,
               connectionRef: connectionRef.trim() || undefined,

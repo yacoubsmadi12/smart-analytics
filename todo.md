@@ -297,3 +297,12 @@
 - [x] Preserve documented schema examples and UI templates without presenting them as live analytics
 - [x] Add tests proving analytics surfaces do not display synthetic records when source data is unavailable
 - [x] Verify the cleaned modules visually, run checks/tests/build, save a checkpoint, and push all changes to GitHub
+
+# Dataset Upload Workspaces and Large Synthetic Network
+
+- [x] Add a dedicated upload workspace for every operational dataset with Manual, API, SFTP, and MySQL options
+- [x] Add per-dataset documentation describing required columns, formats, validation, relationships, and consuming modules
+- [x] Add per-dataset template download and source selection without mixing datasets
+- [x] Add an explicitly labelled Synthetic Network Demo mode with more than 5,000 towers, isolated from live/source-backed analytics
+- [x] Add tests for dataset-specific routing, documentation contracts, synthetic-data labelling, and source isolation
+- [x] Verify desktop/mobile upload UX, run checks/tests/build, save a checkpoint, and push all changes to GitHub

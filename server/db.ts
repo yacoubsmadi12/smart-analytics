@@ -549,6 +549,7 @@ export async function listDataSources() {
 }
 
 export async function createDataSource(input: {
+  datasetKey: string;
   name: string;
   type: string;
   connectionRef?: string;
@@ -560,6 +561,7 @@ export async function createDataSource(input: {
   const result = await db
     .insert(dataSources)
     .values({
+      datasetKey: input.datasetKey,
       name: input.name,
       type: input.type,
       connectionRef: input.connectionRef,
@@ -573,6 +575,7 @@ export async function createDataSource(input: {
       action: "data_source.created",
       resource: input.name,
       metadata: JSON.stringify({
+        datasetKey: input.datasetKey,
         type: input.type,
         connectionRef: input.connectionRef,
         secretEnv: input.secretEnv,
@@ -592,6 +595,7 @@ export async function updateDataSourceSync(sourceId: number, status: string, lat
 }
 
 export async function createImportRun(input: {
+  datasetKey: string;
   sourceId?: number;
   userId: number;
   method: string;
@@ -645,13 +649,14 @@ export async function saveImportMapping(input: {
     });
 }
 
-export async function listImportRuns(userId: number) {
+export async function listImportRuns(userId: number, datasetKey?: string) {
   const db = await getDb();
   if (!db) return [];
+  const filters = datasetKey ? and(eq(importRuns.userId, userId), eq(importRuns.datasetKey, datasetKey)) : eq(importRuns.userId, userId);
   return db
     .select()
     .from(importRuns)
-    .where(eq(importRuns.userId, userId))
+    .where(filters)
     .orderBy(desc(importRuns.createdAt))
     .limit(50);
 }

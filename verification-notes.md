@@ -43,3 +43,5 @@ The independent /intelligence-map route renders the Google Maps canvas after loc
 - Authenticated Command Center re-check after the cleanup now shows “Awaiting … data” and “No source-backed … available” states across KPI, site, customer, complaint, CX, revenue, and priority sections. The map panel is an empty source-backed canvas instead of a default geographic map.
 
 - In-app Data Management verification shows 0 configured sources and no import runs. The empty state is explicit, and the failed import-history handshake appears as an actionable error with Retry; no fake source or import record is displayed.
+
+- Authenticated Data Management verification: the Dataset workspace selector, per-dataset documentation, template download action, and isolated Synthetic Network Demo card are visible. Network Sites displays the required/optional fields, intake formats, relationships, consuming modules, and the Generate 5,250 towers action. The connected-source state is empty and explicit.

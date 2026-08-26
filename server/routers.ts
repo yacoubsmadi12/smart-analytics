@@ -273,8 +273,9 @@ export const appRouter = router({
       adminOnly(ctx.user);
       const rows = await listDataSources();
       return rows.map(row => ({
-        id: String(row.id),
-        name: row.name,
+          id: String(row.id),
+          datasetKey: row.datasetKey || "unassigned",
+          name: row.name,
         type: row.type.toUpperCase(),
         status: row.status,
         lastSync: row.lastSyncAt ? row.lastSyncAt.toISOString() : "Never",
@@ -285,12 +286,13 @@ export const appRouter = router({
         records: 0,
       }));
     }),
-    importRuns: protectedProcedure.query(({ ctx }) =>
-      listImportRuns(ctx.user.id)
-    ),
+    importRuns: protectedProcedure
+      .input(z.object({ datasetKey: z.string().min(2).max(80).optional() }).optional())
+      .query(({ ctx, input }) => listImportRuns(ctx.user.id, input?.datasetKey)),
     registerSource: protectedProcedure
       .input(
         z.object({
+          datasetKey: z.string().min(2).max(80),
           name: z.string().min(2).max(120),
           type: z.enum(["manual", "api", "sftp", "database"]),
           connectionRef: z.string().max(200).optional(),
@@ -299,7 +301,7 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         adminOnly(ctx.user);
-        await createDataSource({ ...input, userId: ctx.user.id });
+          await createDataSource({ ...input, userId: ctx.user.id });
         return { success: true };
       }),
     testConnection: protectedProcedure
@@ -379,6 +381,7 @@ export const appRouter = router({
     manualImport: protectedProcedure
       .input(
         z.object({
+          datasetKey: z.string().min(2).max(80),
           sourceId: z.number().int().positive().optional(),
           sourceName: z.string().min(2).max(120),
           fileName: z.string().min(1).max(255),
@@ -455,6 +458,7 @@ export const appRouter = router({
           input.mimeType || "application/octet-stream"
         );
         const run = await createImportRun({
+          datasetKey: input.datasetKey,
           sourceId: input.sourceId,
           userId: ctx.user.id,
           method: "manual",
