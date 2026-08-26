@@ -328,3 +328,10 @@
 - [x] Make the isolated synthetic network data visible directly in the operational department sections with clear synthetic labels
 - [x] Preserve strict isolation so synthetic records are never inserted into or mixed with production source tables
 - [x] Verify department views and responsive layouts, run tests/typecheck/build, save a checkpoint, and push changes to GitHub
+
+# Command Center Layout Polish
+
+- [x] Fix Command Center top bar, sidebar, and user-profile alignment so labels do not overlap
+- [x] Rebuild Command Center KPI presentation with separated labels, values, units, and source metadata
+- [x] Improve dashboard card spacing, typography, and responsive behavior on desktop and mobile
+- [x] Verify the polished dashboard with screenshots, tests, typecheck, and production build; save a checkpoint
