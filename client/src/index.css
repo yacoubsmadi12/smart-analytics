@@ -3614,3 +3614,17 @@ nav em {
 @keyframes node-pulse { 0%, 100% { transform: scale(.7); opacity: .65; } 50% { transform: scale(1.15); opacity: 1; } }
 @media (max-width: 760px) { .login-art { min-height: 48vh; padding: 25px 23px; } .login-orbit-scene { width: 360px; height: 360px; right: -100px; top: 9%; opacity: .8; } .login-art-copy { margin-top: 13vh; } .login-art-copy h1 { font-size: 42px; letter-spacing: -2px; } .login-art-copy p { display: none; } .login-proof { display: none; } .login-card-wrap { min-height: 52vh; padding: 24px 18px 34px; } .login-card { padding: 27px 24px; } }
 @media (prefers-reduced-motion: reduce) { .orbit-glow, .scene-tower span, .signal-node { animation: none; } }
+
+/* Login readability correction: keep visual atmosphere behind the copy, never over it. */
+.login-art { isolation: isolate; }
+.login-art-copy { position: relative; z-index: 4; width: min(100%, 470px); }
+.login-art-copy h1 { max-width: 450px; font-size: clamp(43px, 4.4vw, 60px); line-height: 1.03; letter-spacing: -2.8px; text-wrap: balance; }
+.login-art-copy p { max-width: 380px; }
+.login-orbit-scene { z-index: 1; width: min(38vw, 480px); height: min(38vw, 480px); right: -4%; top: 28%; opacity: .62; }
+.login-orbit-scene .scene-label { opacity: .72; }
+.login-orbit-scene .label-one { left: 2%; bottom: 18%; }
+.login-orbit-scene .label-two { right: 1%; top: 9%; }
+.login-proof { position: relative; z-index: 5; background: #0b2532ee; }
+@media (min-width: 761px) { .login-art-copy { margin-top: 24vh; } .login-art-copy h1 em { white-space: nowrap; } }
+@media (max-width: 1100px) and (min-width: 761px) { .login-art-copy h1 { font-size: 46px; } .login-orbit-scene { right: -18%; opacity: .45; } }
+@media (max-width: 760px) { .login-art-copy { width: 100%; } .login-art-copy h1 { font-size: 40px; } .login-orbit-scene { right: -115px; top: 3%; opacity: .28; } .login-orbit-scene .scene-label { display: none; } }
