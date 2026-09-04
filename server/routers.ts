@@ -41,7 +41,8 @@ import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 import { createOperationalAlerts, createReport, type ReportKind } from "./platform-operations";
 
-let systemSettings = { networkImpact: 35, customerImpact: 20, revenueImpact: 25, language: "English", timezone: "Asia/Amman", dataRefreshMinutes: 15, theme: "Telecom NOC" };
+let systemSettings = { networkImpact: 45, customerImpact: 25, revenueImpact: 30, language: "English", timezone: "Asia/Amman", dataRefreshMinutes: 15, theme: "dark" };
+const alertState = new Map<string, { status: "open" | "acknowledged" | "resolved"; assignee: string | null; updatedAt: string }>();
 
 const permissionsByRole: Record<string, string[]> = {
   admin: [
@@ -195,13 +196,15 @@ export const appRouter = router({
   alerts: router({
     operations: protectedProcedure.query(async () => {
       const sites = await getPersistedMapSites();
-      return sites ? createOperationalAlerts(sites) : [];
+      return sites ? createOperationalAlerts(sites).map(alert => ({ ...alert, ...(alertState.get(alert.id) ?? {}) })) : [];
     }),
     updateStatus: protectedProcedure.input(z.object({ id: z.string().min(1), status: z.enum(["acknowledged", "resolved"]), assignee: z.string().max(120).optional() })).mutation(async ({ input }) => {
       const sites = await getPersistedMapSites();
       const alert = sites ? createOperationalAlerts(sites).find(item => item.id === input.id) : undefined;
       if (!alert) throw new TRPCError({ code: "NOT_FOUND", message: "Alert is unavailable because no matching source-backed signal was found." });
-      return { ...alert, status: input.status, assignee: input.assignee ?? null };
+      const next = { status: input.status, assignee: input.assignee ?? null, updatedAt: new Date().toISOString() } as const;
+      alertState.set(input.id, next);
+      return { ...alert, ...next };
     }),
   }),
   reports: router({
@@ -209,7 +212,7 @@ export const appRouter = router({
   }),
   settings: router({
     get: protectedProcedure.query(({ ctx }) => { adminOnly(ctx.user); return systemSettings; }),
-    update: protectedProcedure.input(z.object({ networkImpact: z.number().min(0).max(100), customerImpact: z.number().min(0).max(100), revenueImpact: z.number().min(0).max(100), dataRefreshMinutes: z.number().int().min(1).max(1440), timezone: z.string().min(1).max(80), theme: z.string().min(1).max(80) })).mutation(({ ctx, input }) => { adminOnly(ctx.user); systemSettings = { ...systemSettings, ...input }; return systemSettings; }),
+    update: protectedProcedure.input(z.object({ networkImpact: z.number().min(0).max(100), customerImpact: z.number().min(0).max(100), revenueImpact: z.number().min(0).max(100), dataRefreshMinutes: z.number().int().min(1).max(1440), timezone: z.string().min(1).max(80), theme: z.enum(["dark", "light"]).default("dark"), language: z.enum(["English", "Arabic"]).default("English") })).mutation(({ ctx, input }) => { adminOnly(ctx.user); if (input.networkImpact + input.customerImpact + input.revenueImpact !== 100) throw new TRPCError({ code: "BAD_REQUEST", message: "Priority weights must total exactly 100%." }); systemSettings = { ...systemSettings, ...input }; return systemSettings; }),
   }),
   audit: router({
     list: protectedProcedure.query(({ ctx }) => { adminOnly(ctx.user); return listAuditLogs(); }),

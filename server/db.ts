@@ -396,7 +396,7 @@ const previewAdmin = {
 };
 export async function ensureLocalAdmin() {
   const db = await getDb();
-  if (!db) return previewAdmin;
+  if (!db) return undefined;
   const existing = await getUserByUsername(LOCAL_ADMIN_USERNAME);
   if (existing) return existing;
   await db
