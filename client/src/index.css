@@ -3573,3 +3573,44 @@ nav em {
 .sidebar-minimal-note b { color: #b9d5da; font-size: 10px; white-space: nowrap; }
 .sidebar-minimal-note small { margin-top: 5px; color: #62818b; font-size: 9px; line-height: 1.4; }
 @media (max-width: 760px) { .sidebar-minimal { width: 246px; flex-basis: 246px; } .sidebar-minimal:not(.open) { width: 246px; } }
+
+/* Premium Smart AI login identity */
+.login-shell { grid-template-columns: 1.16fr .84fr; }
+.login-art { padding: 38px clamp(32px, 6vw, 96px); background: radial-gradient(circle at 64% 48%, #164a5d 0, transparent 25%), radial-gradient(circle at 20% 90%, #12314d 0, transparent 32%), #07131e; }
+.login-art:after { opacity: .12; background-size: 64px 64px; transform: skewY(-8deg) scale(1.2); }
+.login-brand { gap: 13px; }
+.login-brand strong { font-size: 19px; letter-spacing: -.7px; }
+.login-brand small { display: block; margin-top: 4px; color: #5e8f9b; font: 8px "DM Mono"; letter-spacing: 1.4px; }
+.smart-mark { position: relative; display: inline-block; width: 31px; height: 31px; flex: 0 0 31px; border: 1px solid #5ce9ef77; border-radius: 11px; background: linear-gradient(145deg, #123f53, #10243d); box-shadow: inset 0 0 14px #55eef622, 0 0 20px #30dce425; }
+.smart-mark-large { width: 43px; height: 43px; flex-basis: 43px; border-radius: 15px; }
+.smart-core { position: absolute; width: 9px; height: 9px; left: calc(50% - 4.5px); top: calc(50% - 4.5px); border-radius: 50%; background: #b9ffff; box-shadow: 0 0 0 4px #4de8ed33, 0 0 18px 4px #5df6fa; }
+.smart-orbit { position: absolute; inset: 7px 4px; border: 1px solid #65e9edaa; border-radius: 50%; transform: rotate(55deg); }
+.smart-mark-large .smart-orbit { inset: 9px 5px; }
+.orbit-two { transform: rotate(-55deg); border-color: #638fff88; }
+.smart-node { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #6c9dff; box-shadow: 0 0 8px #6c9dff; }
+.node-one { top: 4px; left: 13px; } .node-two { right: 4px; top: 13px; background: #72f4d0; } .node-three { bottom: 5px; left: 7px; background: #f7c86a; }
+.login-orbit-scene { position: absolute; z-index: 0; width: min(46vw, 580px); height: min(46vw, 580px); right: 5%; top: 21%; border-radius: 50%; }
+.orbit-glow { position: absolute; inset: 18%; border-radius: 50%; background: radial-gradient(circle, #43dfe91d, transparent 66%); filter: blur(5px); animation: scene-breathe 4.5s ease-in-out infinite; }
+.orbit-line { position: absolute; inset: 10%; border: 1px solid #67eaf044; border-radius: 50%; transform: rotate(28deg) skewX(-18deg); }
+.orbit-line-two { inset: 18% 3%; transform: rotate(-34deg) skewX(16deg); border-color: #789bff35; }
+.scene-tower { position: absolute; left: 43%; top: 35%; display: grid; place-items: center; color: #76eff0; filter: drop-shadow(0 0 17px #3ee4eb55); }
+.scene-tower span { position: absolute; top: -5px; width: 6px; height: 6px; border-radius: 50%; background: #f8c767; box-shadow: 0 0 16px 4px #f8c767; animation: beacon 2s ease-in-out infinite; }
+.signal-node { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #79f5dd; box-shadow: 0 0 0 6px #79f5dd17, 0 0 20px #79f5dd; animation: node-pulse 3s ease-in-out infinite; }
+.signal-node-one { left: 19%; top: 36%; } .signal-node-two { right: 18%; top: 26%; background: #7b9dff; box-shadow: 0 0 0 6px #7b9dff17, 0 0 20px #7b9dff; animation-delay: .8s; } .signal-node-three { right: 22%; bottom: 22%; background: #f4c86c; box-shadow: 0 0 0 6px #f4c86c17, 0 0 20px #f4c86c; animation-delay: 1.5s; }
+.scene-label { position: absolute; padding: 8px 10px; border: 1px solid #4e89935e; border-radius: 7px; background: #09202bcc; color: #74a7af; font: 7px "DM Mono"; letter-spacing: 1px; backdrop-filter: blur(8px); }
+.scene-label b { display: block; margin-top: 4px; color: #d7fcf5; font-size: 11px; letter-spacing: 0; } .label-one { left: 5%; bottom: 25%; } .label-two { right: 4%; top: 14%; }
+.login-art-copy { z-index: 1; max-width: 510px; margin-top: 22vh; }
+.login-art-copy h1 { margin: 19px 0 15px; font-size: clamp(46px, 5vw, 72px); line-height: .99; letter-spacing: -3.6px; }
+.login-art-copy p { max-width: 420px; color: #91adb5; font-size: 13px; line-height: 1.75; }
+.login-proof { display: flex; align-items: center; gap: 11px; width: min(390px, 100%); margin-top: 38px; padding: 12px 13px; border: 1px solid #315866; border-radius: 11px; background: #0d2836c7; box-shadow: 0 16px 35px #0004; }
+.proof-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; color: #7cf6e1; background: #12433f; }
+.login-proof b, .login-proof small { display: block; } .login-proof b { color: #dbf4f2; font-size: 10px; } .login-proof small { margin-top: 4px; color: #759aa3; font-size: 8px; } .proof-live { margin-left: auto; color: #70efb6; font: 8px "DM Mono"; }
+.login-card-wrap { padding: 40px clamp(28px, 6vw, 90px); background: #07111be8; }
+.login-card { width: min(410px, 100%); padding: 36px 37px; border-color: #2a5363; border-radius: 20px; background: linear-gradient(150deg, #102a38f5, #091722f5); }
+.login-card-head { text-align: left; } .login-card-logo { display: flex; align-items: center; gap: 9px; margin-bottom: 28px; color: #6799a4; font: 8px "DM Mono"; letter-spacing: 1px; } .login-card-logo .smart-mark { width: 28px; height: 28px; flex-basis: 28px; border-radius: 9px; }
+.login-card-head h2 { font-size: 28px; letter-spacing: -1px; } .login-card-head p { font-size: 10px; margin-bottom: 28px; }
+.login-input { border-radius: 9px; padding: 12px; background: #07141f; } .login-submit { height: 45px; border-radius: 9px; margin-top: 21px; font-size: 10px; letter-spacing: .1px; }
+@keyframes scene-breathe { 0%, 100% { transform: scale(.94); opacity: .65; } 50% { transform: scale(1.08); opacity: 1; } }
+@keyframes node-pulse { 0%, 100% { transform: scale(.7); opacity: .65; } 50% { transform: scale(1.15); opacity: 1; } }
+@media (max-width: 760px) { .login-art { min-height: 48vh; padding: 25px 23px; } .login-orbit-scene { width: 360px; height: 360px; right: -100px; top: 9%; opacity: .8; } .login-art-copy { margin-top: 13vh; } .login-art-copy h1 { font-size: 42px; letter-spacing: -2px; } .login-art-copy p { display: none; } .login-proof { display: none; } .login-card-wrap { min-height: 52vh; padding: 24px 18px 34px; } .login-card { padding: 27px 24px; } }
+@media (prefers-reduced-motion: reduce) { .orbit-glow, .scene-tower span, .signal-node { animation: none; } }
