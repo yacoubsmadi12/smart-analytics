@@ -3665,3 +3665,8 @@ nav em {
 .fallback-site.warning { background: #f3c260; box-shadow: 0 0 0 3px #f3c26022, 0 0 12px #f3c260; } .fallback-site.critical { background: #fb7986; box-shadow: 0 0 0 4px #fb798633, 0 0 15px #fb7986; }
 .fallback-site i { width: 2px; height: 2px; border-radius: 50%; background: white; }
 .fallback-cities { position: absolute; z-index: 4; inset: 0; color: #aacbd0; font: 8px "DM Mono"; } .fallback-cities span { position: absolute; padding: 4px 6px; border: 1px solid #46737a88; border-radius: 4px; background: #0a2632cc; } .fallback-cities span:nth-child(1) { left: 49%; top: 43%; } .fallback-cities span:nth-child(2) { left: 43%; top: 22%; } .fallback-cities span:nth-child(3) { left: 34%; top: 78%; }
+
+.executive-trend-strip { display: flex; align-items: center; gap: 18px; width: min(100%, 1700px); margin: 0 auto 12px; padding: 10px 32px; border-top: 1px solid #1e3d49; border-bottom: 1px solid #1e3d49; background: #0b1c27aa; color: #83a3ab; font-size: 9px; }
+.executive-trend-strip > div { display: grid; gap: 4px; min-width: 190px; margin-right: auto; } .executive-trend-strip > div b { color: #a9c7cc; font-size: 9px; font-weight: 500; }
+.executive-trend-strip > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; } .executive-trend-strip i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; } .trend-good { background: #63e3ad; box-shadow: 0 0 8px #63e3ad; } .trend-risk { background: #f1bd63; box-shadow: 0 0 8px #f1bd63; } .trend-neutral { background: #78a4ff; box-shadow: 0 0 8px #78a4ff; }
+@media (max-width: 900px) { .executive-trend-strip { flex-wrap: wrap; padding: 10px 16px; gap: 10px 15px; } .executive-trend-strip > div { flex-basis: 100%; } }

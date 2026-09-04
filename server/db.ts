@@ -58,7 +58,7 @@ export async function getPersistedDashboardSummary() {
       db.select({ value: sql<string>`sum(${revenues.atRisk})` }).from(revenues),
     ]);
     const numberValue = (value: unknown) => Number(value || 0);
-    const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0, source: "persisted" as const };
+    const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0, updatedAt: new Date().toISOString(), trend: { period: "7d", networkHealth: null, openComplaints: null, cxRisk: null, revenueAtRisk: null, mode: "source-history-unavailable" as const }, source: "persisted" as const };
     return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : buildSyntheticDashboardSummary();
   } catch (error) {
     console.warn("[Database] Dashboard summary query unavailable; using isolated synthetic dataset:", error);

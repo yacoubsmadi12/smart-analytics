@@ -192,5 +192,5 @@ export function buildSyntheticPriorities(): PrioritiesOperations {
 
 export function buildSyntheticDashboardSummary() {
   const network = buildSyntheticNetworkOperations();
-  return { networkHealth: network.summary.availability, sites: SYNTHETIC_TOWER_COUNT, customers: 126_000, openComplaints: 8_400, cxRisk: 62.4, revenueAtRisk: 1_510_000, updatedMinutesAgo: 0, updatedAt: SYNTHETIC_UPDATED_AT, source: "synthetic" as const };
+  return { networkHealth: network.summary.availability, sites: SYNTHETIC_TOWER_COUNT, customers: 126_000, openComplaints: 8_400, cxRisk: 62.4, revenueAtRisk: 1_510_000, updatedMinutesAgo: 0, updatedAt: SYNTHETIC_UPDATED_AT, trend: { period: "7d", networkHealth: 1.8, openComplaints: 14.2, cxRisk: -2.1, revenueAtRisk: 4.6, mode: "preview-simulation" as const }, source: "synthetic" as const };
 }
