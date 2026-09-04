@@ -3628,3 +3628,29 @@ nav em {
 @media (min-width: 761px) { .login-art-copy { margin-top: 24vh; } .login-art-copy h1 em { white-space: nowrap; } }
 @media (max-width: 1100px) and (min-width: 761px) { .login-art-copy h1 { font-size: 46px; } .login-orbit-scene { right: -18%; opacity: .45; } }
 @media (max-width: 760px) { .login-art-copy { width: 100%; } .login-art-copy h1 { font-size: 40px; } .login-orbit-scene { right: -115px; top: 3%; opacity: .28; } .login-orbit-scene .scene-label { display: none; } }
+
+/* Executive Decision Cockpit */
+.executive-cockpit { position: relative; width: min(100%, 1700px); margin: 4px auto 10px; padding: 21px 32px 0; }
+.executive-cockpit:before { content: ""; position: absolute; inset: 0 32px; pointer-events: none; border-top: 1px solid #214451; opacity: .65; }
+.executive-cockpit-head { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-top: 19px; margin-bottom: 15px; }
+.executive-cockpit-head .section-kicker { display: inline-flex; align-items: center; gap: 8px; color: #76dfe4; }
+.executive-cockpit-head h2 { margin: 7px 0 5px; color: #ecfbfc; font-size: 21px; letter-spacing: -.7px; }
+.executive-cockpit-head p { margin: 0; color: #7897a1; font-size: 10px; }
+.executive-status { display: grid; grid-template-columns: 7px auto; align-items: center; column-gap: 8px; min-width: 118px; padding: 10px 12px; border: 1px solid #2b6d5a; border-radius: 8px; background: #123629aa; color: #79ecb2; }
+.executive-status > span { grid-row: span 2; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 5px currentColor; opacity: .22; }
+.executive-status b { font: 10px "DM Mono"; letter-spacing: .8px; } .executive-status small { color: #719b8f; font-size: 8px; }
+.executive-status.needs-attention { border-color: #765c2d; background: #382b16aa; color: #f1bf61; } .executive-status.critical { border-color: #773c44; background: #3b2028aa; color: #ff8585; } .executive-status.awaiting-data { border-color: #31526a; background: #142839aa; color: #83a7bb; }
+.executive-story-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.executive-story { position: relative; display: grid; grid-template-columns: 34px 1fr auto; align-items: start; gap: 10px; min-height: 121px; padding: 15px; overflow: hidden; border: 1px solid #234a55; border-radius: 12px; background: linear-gradient(145deg, #102934, #0b1923); }
+.executive-story:after { content: ""; position: absolute; right: -22px; bottom: -32px; width: 100px; height: 100px; border-radius: 50%; background: #38d7e313; }
+.story-customer:after { background: #72a4ff14; } .story-revenue:after { background: #f2bd6414; }
+.story-icon { position: relative; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #2b7982; border-radius: 10px; color: #72e9ed; background: #10434d; }
+.story-customer .story-icon { color: #9fb6ff; border-color: #4e639c; background: #26365f; } .story-revenue .story-icon { color: #f7cd78; border-color: #80622e; background: #4b381d; }
+.executive-story div:nth-child(2) { position: relative; z-index: 1; min-width: 0; } .executive-story span { color: #6694a0; font: 8px "DM Mono"; letter-spacing: 1px; } .executive-story h3 { margin: 7px 0 6px; color: #e9f9fa; font-size: 15px; letter-spacing: -.3px; } .executive-story p { max-width: 260px; margin: 0; color: #7899a3; font-size: 9px; line-height: 1.5; }
+.executive-story > button { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid #2b5763; border-radius: 7px; background: #122e39; color: #72ccd4; }
+.executive-decision-bar { display: flex; align-items: center; gap: 15px; margin-top: 10px; padding: 11px 13px; border: 1px solid #304c59; border-radius: 10px; background: linear-gradient(90deg, #122b35, #10222f); }
+.decision-label { display: flex; align-items: center; gap: 8px; flex: 0 0 160px; color: #73e4d6; } .decision-label > div { min-width: 0; } .decision-label b, .decision-label small { display: block; } .decision-label b { color: #dff8f5; font-size: 10px; } .decision-label small { margin-top: 3px; color: #73939c; font-size: 8px; white-space: nowrap; }
+.decision-items { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; } .decision-items button { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 220px; padding: 7px 9px; border: 1px solid #244956; border-radius: 6px; background: #0b1c26; color: #b8ced2; text-align: left; } .decision-items button:hover { border-color: #4d8b94; } .decision-items span { color: #6de3d2; font: 9px "DM Mono"; } .decision-items b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; font-weight: 600; } .decision-items svg { flex: 0 0 auto; color: #5f9eaa; }
+.decision-cta { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 8px 11px; border: 1px solid #2c9fa5; border-radius: 6px; background: linear-gradient(135deg, #146b75, #2757a1); color: white; font-size: 9px; font-weight: 700; }
+@media (max-width: 1000px) { .executive-story-grid { grid-template-columns: 1fr; } .executive-story { min-height: 92px; } }
+@media (max-width: 760px) { .executive-cockpit { padding: 15px 16px 0; } .executive-cockpit:before { inset: 0 16px; } .executive-cockpit-head { align-items: flex-start; flex-direction: column; gap: 13px; } .executive-cockpit-head h2 { font-size: 18px; } .executive-status { min-width: 130px; } .executive-decision-bar { align-items: stretch; flex-direction: column; gap: 10px; } .decision-label { flex-basis: auto; } .decision-items { flex-direction: column; align-items: stretch; } .decision-items button { max-width: none; width: 100%; } .decision-cta { justify-content: center; } }
