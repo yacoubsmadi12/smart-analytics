@@ -18,9 +18,18 @@ type Metric = { label: string; value: string; note: string; icon: typeof Signal;
 function formatMoney(value: number) { if (!value) return "—"; return value >= 1_000_000 ? `$${(value / 1_000_000).toFixed(2)}M` : `$${Math.round(value / 1_000)}K`; }
 function formatMetric(value: number | undefined, suffix = "") { return value === undefined || value === null || !Number.isFinite(value) ? "—" : `${value.toLocaleString()}${suffix}`; }
 
+function VisualFallbackMap({ sites }: { sites: Site[] }) {
+  const visibleSites = sites.slice(0, 120);
+  const latitudes = visibleSites.map(site => site.lat);
+  const longitudes = visibleSites.map(site => site.lng);
+  const minLat = Math.min(...latitudes, 31.15), maxLat = Math.max(...latitudes, 34.35), minLng = Math.min(...longitudes, 35.55), maxLng = Math.max(...longitudes, 38.65);
+  return <div className="visual-fallback-map"><div className="fallback-region-label">JORDAN · NETWORK COVERAGE</div><div className="fallback-grid-lines" aria-hidden="true" />{visibleSites.map(site => { const left = 8 + ((site.lng - minLng) / Math.max(.01, maxLng - minLng)) * 84; const top = 88 - ((site.lat - minLat) / Math.max(.01, maxLat - minLat)) * 74; return <span key={site.id} className={`fallback-site ${site.status}`} style={{ left: `${left}%`, top: `${top}%` }} title={`${site.id} · ${site.name} · ${site.customers.toLocaleString()} customers`}><i /></span>; })}<div className="fallback-cities"><span>Amman</span><span>Irbid</span><span>Aqaba</span></div></div>;
+}
+
 function CommandMap({ sites }: { sites: Site[] }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const [mapError, setMapError] = useState(false);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -29,7 +38,7 @@ function CommandMap({ sites }: { sites: Site[] }) {
     return () => { markersRef.current.forEach(marker => marker.setMap(null)); markersRef.current = []; };
   }, [sites]);
   const center = sites[0] ? { lat: sites[0].lat, lng: sites[0].lng } : { lat: 0, lng: 0 };
-  return <div className="map-canvas command-map"><div className="map-scanline" aria-hidden="true" />{sites.length ? <MapView className="real-map" initialCenter={center} initialZoom={8} onMapReady={map => { mapRef.current = map; }} /> : <div className="map-empty-canvas"><MapPin size={20} /><b>No source-backed sites available</b><span>Connect or import a Network Sites dataset to populate the map.</span></div>}<div className="map-live-badge"><i className="live-dot" /> LIVE NETWORK VIEW</div><div className="map-legend"><span><i className="dot healthy" />Healthy</span><span><i className="dot warn" />Warning</span><span><i className="dot critical" />Critical</span></div></div>;
+  return <div className="map-canvas command-map"><div className="map-scanline" aria-hidden="true" />{sites.length ? (mapError ? <VisualFallbackMap sites={sites} /> : <MapView className="real-map" initialCenter={center} initialZoom={8} onMapReady={map => { mapRef.current = map; }} onMapError={() => setMapError(true)} />) : <div className="map-empty-canvas"><MapPin size={20} /><b>No source-backed sites available</b><span>Connect or import a Network Sites dataset to populate the map.</span></div>}<div className="map-live-badge"><i className="live-dot" /> {mapError ? "LOCAL NETWORK VIEW" : "LIVE NETWORK VIEW"}</div><div className="map-legend"><span><i className="dot healthy" />Healthy</span><span><i className="dot warn" />Warning</span><span><i className="dot critical" />Critical</span></div></div>;
 }
 function MetricCard({ metric }: { metric: Metric }) { const Icon = metric.icon; return <div className={`command-metric ${metric.tone}`}><div><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.note}</small></div><Icon size={18} /></div>; }
 
