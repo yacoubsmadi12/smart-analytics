@@ -379,10 +379,24 @@ export function temporaryPasswordExpiry(now = new Date()) {
 }
 export const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) =>
   scryptSync(password, salt, 64).toString("hex");
-
+const previewAdmin = {
+  id: 0,
+  openId: "local_admin",
+  username: LOCAL_ADMIN_USERNAME,
+  passwordHash: hashLocalPassword(LOCAL_ADMIN_PASSWORD),
+  name: "System Administrator",
+  email: null,
+  loginMethod: "local",
+  role: "admin" as const,
+  isActive: true,
+  temporaryPasswordExpiresAt: null,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+  lastSignedIn: new Date(),
+};
 export async function ensureLocalAdmin() {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return previewAdmin;
   const existing = await getUserByUsername(LOCAL_ADMIN_USERNAME);
   if (existing) return existing;
   await db
@@ -485,7 +499,7 @@ export async function getUserById(id: number) {
 
 export async function getUserByUsername(username: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return username === LOCAL_ADMIN_USERNAME ? previewAdmin : undefined;
   const result = await db
     .select()
     .from(users)
@@ -507,8 +521,7 @@ export function verifyLocalPassword(
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
+    return openId === "local_admin" ? previewAdmin : undefined;
   }
 
   const result = await db
