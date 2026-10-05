@@ -23,6 +23,7 @@ import ReportsPage from "./pages/ReportsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
 import RFPerformancePage from "./pages/RFPerformancePage";
+import AccountPage from "./pages/AccountPage";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 function ModuleRoute() { const [, params] = useRoute("/:module"); const slug = params?.module || "network"; if (slug === "rf-performance") return <RFPerformancePage />; if (slug === "intelligence-map") return <IntelligenceMapPage />; if (slug === "network") return <NetworkPage />; if (slug === "customer-experience") return <CustomerExperiencePage />; if (slug === "customers") return <CustomersPage />; if (slug === "complaints") return <ComplaintsPage />; if (slug === "infrastructure-fiber") return <InfrastructureFiberPage />; if (slug === "sales") return <SalesPage />; if (slug === "marketing") return <MarketingPage />; if (slug === "business-revenue") return <BusinessRevenuePage />; if (slug === "priorities") return <PrioritiesPage />; if (slug === "ai-assistant") return <AIAssistantPage />; if (slug === "alerts") return <AlertsPage />; if (slug === "reports") return <ReportsPage />; if (slug === "system-settings") return <SystemSettingsPage />; if (slug === "audit-logs") return <AuditLogsPage />; return <ModulePage slug={slug}/>; }
@@ -32,7 +33,7 @@ function Router() {
   const { user, loading } = useAuth();
   if (isLoginRoute) return <Login/>;
   if (loading) return <div className="auth-loading"><div className="brand-mark"><span/><span/><span/></div><span>Loading secure workspace…</span></div>;
-  return <Switch><Route path="/login" component={Login}/>{user ? <><Route path="/" component={Home}/><Route path="/:module" component={ModuleRoute}/></> : <><Route path="/" component={Login}/><Route path="/:module" component={Login}/></>}<Route path="/404" component={NotFound}/><Route component={NotFound}/></Switch>;
+  return <Switch><Route path="/login" component={Login}/>{user ? <><Route path="/" component={Home}/><Route path="/account/profile" component={() => <AccountPage mode="profile" />}/><Route path="/account/settings" component={() => <AccountPage mode="settings" />}/><Route path="/:module" component={ModuleRoute}/></> : <><Route path="/" component={Login}/><Route path="/:module" component={Login}/></>}<Route path="/404" component={NotFound}/><Route component={NotFound}/></Switch>;
 }
 
 export default function App() {
