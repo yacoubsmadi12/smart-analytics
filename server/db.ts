@@ -490,6 +490,23 @@ export async function setLocalUserActive(input: { userId: number; isActive: bool
   return updated ? toPublicLocalUser(updated) : undefined;
 }
 
+export async function updateCurrentUserProfile(input: { userId: number; name: string; email?: string | null }) {
+  const name = input.name.trim();
+  const email = input.email?.trim() || null;
+  if (!name) throw new Error("Name is required");
+  const db = await getDb();
+  if (!db && input.userId === 0) {
+    previewAdmin.name = name;
+    (previewAdmin as { email: string | null }).email = email;
+    return { name: previewAdmin.name, email: previewAdmin.email };
+  }
+  if (!db) throw new Error("Database is not available");
+  await db.update(users).set({ name, email }).where(eq(users.id, input.userId));
+  const updated = await getUserById(input.userId);
+  if (!updated) throw new Error("User not found");
+  return { name: updated.name, email: updated.email };
+}
+
 export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

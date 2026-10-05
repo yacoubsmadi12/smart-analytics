@@ -32,6 +32,7 @@ import {
   updateLocalUserRole,
   resetLocalUserPassword,
   setLocalUserActive,
+  updateCurrentUserProfile,
   listImportRuns,
   verifyLocalPassword,
 } from "./db";
@@ -141,6 +142,9 @@ export const appRouter = router({
         permission => permission.split(".")[0]
       ) ?? ["dashboard"],
     })),
+    updateProfile: protectedProcedure
+      .input(z.object({ name: z.string().trim().min(1).max(120), email: z.string().trim().email().nullable().optional() }))
+      .mutation(async ({ ctx, input }) => updateCurrentUserProfile({ userId: ctx.user.id, name: input.name, email: input.email })),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
