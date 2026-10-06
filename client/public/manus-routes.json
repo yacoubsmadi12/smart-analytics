@@ -1,0 +1,24 @@
+{
+  "routes": [
+    { "path": "/", "title": "Home" },
+    { "path": "/login", "title": "Login" },
+    { "path": "/account/profile", "title": "Profile" },
+    { "path": "/account/settings", "title": "Settings" },
+    { "path": "/network", "title": "Network" },
+    { "path": "/rf-performance", "title": "RF Performance" },
+    { "path": "/intelligence-map", "title": "Intelligence Map" },
+    { "path": "/customer-experience", "title": "Customer Experience" },
+    { "path": "/customers", "title": "Customers" },
+    { "path": "/complaints", "title": "Complaints" },
+    { "path": "/infrastructure-fiber", "title": "Infrastructure Fiber" },
+    { "path": "/sales", "title": "Sales" },
+    { "path": "/marketing", "title": "Marketing" },
+    { "path": "/business-revenue", "title": "Business Revenue" },
+    { "path": "/priorities", "title": "Priorities" },
+    { "path": "/ai-assistant", "title": "AI Assistant" },
+    { "path": "/alerts", "title": "Alerts" },
+    { "path": "/reports", "title": "Reports" },
+    { "path": "/system-settings", "title": "System Settings" },
+    { "path": "/audit-logs", "title": "Audit Logs" }
+  ]
+}
