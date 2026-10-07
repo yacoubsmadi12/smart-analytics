@@ -19,16 +19,47 @@ import {
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
-import { assembleNetworkOperations, networkReason, networkStatus, type NetworkCell } from "./network-analytics";
-import { assembleCustomerExperience, type CustomerExperienceAreaInput } from "./cx-analytics";
+import {
+  assembleNetworkOperations,
+  networkReason,
+  networkStatus,
+  type NetworkCell,
+} from "./network-analytics";
+import {
+  assembleCustomerExperience,
+  type CustomerExperienceAreaInput,
+} from "./cx-analytics";
 import { assembleInfrastructureOperations } from "./infrastructure-analytics";
 import { assembleSalesOperations } from "./sales-analytics";
 import { assembleMarketingOperations } from "./marketing-analytics";
 import { assembleBusinessRevenueOperations } from "./business-revenue-analytics";
-import { assemblePrioritiesOperations, type PriorityInput } from "./priorities-analytics";
-import { assembleCustomerOperations, type CustomerAreaInput } from "./customers-analytics";
-import { assembleComplaintOperations, isNetworkComplaint, type ComplaintRecord } from "./complaints-analytics";
-import { buildSyntheticBusinessRevenue, buildSyntheticComplaints, buildSyntheticCustomerExperience, buildSyntheticCustomers, buildSyntheticDashboardSummary, buildSyntheticInfrastructure, buildSyntheticMarketing, buildSyntheticNetworkOperations, buildSyntheticPriorities, buildSyntheticSales, syntheticMapSites } from "./synthetic-operations";
+import {
+  assemblePrioritiesOperations,
+  type PriorityInput,
+} from "./priorities-analytics";
+import {
+  assembleCustomerOperations,
+  type CustomerAreaInput,
+} from "./customers-analytics";
+import {
+  assembleComplaintOperations,
+  isNetworkComplaint,
+  type ComplaintRecord,
+} from "./complaints-analytics";
+import {
+  buildSyntheticBusinessRevenue,
+  buildSyntheticComplaints,
+  buildSyntheticCustomerExperience,
+  buildSyntheticCustomers,
+  buildSyntheticDashboardSummary,
+  buildSyntheticInfrastructure,
+  buildSyntheticMarketing,
+  buildSyntheticNetworkOperations,
+  buildSyntheticPriorities,
+  buildSyntheticSales,
+  syntheticMapSites,
+} from "./synthetic-operations";
+import { isDemoMode } from "./data-mode";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -46,48 +77,173 @@ export async function getDb() {
 }
 
 export async function getPersistedDashboardSummary() {
+  if (isDemoMode()) return buildSyntheticDashboardSummary();
   const db = await getDb();
   if (!db) return buildSyntheticDashboardSummary();
   try {
-    const [network, sites, customerCount, openComplaintCount, risk, revenueRisk] = await Promise.all([
-      db.select({ value: sql<string>`avg(${networkKpis.availability})` }).from(networkKpis),
-      db.select({ value: sql<number>`count(distinct ${networkKpis.siteId})` }).from(networkKpis),
+    const [
+      network,
+      sites,
+      customerCount,
+      openComplaintCount,
+      risk,
+      revenueRisk,
+    ] = await Promise.all([
+      db
+        .select({ value: sql<string>`avg(${networkKpis.availability})` })
+        .from(networkKpis),
+      db
+        .select({ value: sql<number>`count(distinct ${networkKpis.siteId})` })
+        .from(networkKpis),
       db.select({ value: sql<number>`count(*)` }).from(customers),
-      db.select({ value: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`),
-      db.select({ value: sql<string>`avg(${customers.churnRisk})` }).from(customers),
+      db
+        .select({ value: sql<number>`count(*)` })
+        .from(complaints)
+        .where(sql`${complaints.status} <> 'resolved'`),
+      db
+        .select({ value: sql<string>`avg(${customers.churnRisk})` })
+        .from(customers),
       db.select({ value: sql<string>`sum(${revenues.atRisk})` }).from(revenues),
     ]);
     const numberValue = (value: unknown) => Number(value || 0);
-    const summary = { networkHealth: numberValue(network[0]?.value), sites: numberValue(sites[0]?.value), customers: numberValue(customerCount[0]?.value), openComplaints: numberValue(openComplaintCount[0]?.value), cxRisk: numberValue(risk[0]?.value), revenueAtRisk: numberValue(revenueRisk[0]?.value), updatedMinutesAgo: 0, updatedAt: new Date().toISOString(), trend: { period: "7d", networkHealth: null, openComplaints: null, cxRisk: null, revenueAtRisk: null, mode: "source-history-unavailable" as const }, source: "persisted" as const };
-    return summary.sites || summary.customers || summary.openComplaints || summary.revenueAtRisk ? summary : buildSyntheticDashboardSummary();
+    const summary = {
+      networkHealth: numberValue(network[0]?.value),
+      sites: numberValue(sites[0]?.value),
+      customers: numberValue(customerCount[0]?.value),
+      openComplaints: numberValue(openComplaintCount[0]?.value),
+      cxRisk: numberValue(risk[0]?.value),
+      revenueAtRisk: numberValue(revenueRisk[0]?.value),
+      updatedMinutesAgo: 0,
+      updatedAt: new Date().toISOString(),
+      trend: {
+        period: "7d",
+        networkHealth: null,
+        openComplaints: null,
+        cxRisk: null,
+        revenueAtRisk: null,
+        mode: "source-history-unavailable" as const,
+      },
+      source: "persisted" as const,
+    };
+    return summary.sites ||
+      summary.customers ||
+      summary.openComplaints ||
+      summary.revenueAtRisk
+      ? summary
+      : buildSyntheticDashboardSummary();
   } catch (error) {
-    console.warn("[Database] Dashboard summary query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Dashboard summary query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticDashboardSummary();
   }
 }
 
 export async function getPersistedMapSites() {
+  if (isDemoMode()) return syntheticMapSites();
   const db = await getDb();
   if (!db) return syntheticMapSites();
   try {
-    const [siteRows, cellRows, kpiRows, complaintRows, customerRows, fiberRows, salesRows, revenueRows] = await Promise.all([
+    const [
+      siteRows,
+      cellRows,
+      kpiRows,
+      complaintRows,
+      customerRows,
+      fiberRows,
+      salesRows,
+      revenueRows,
+    ] = await Promise.all([
       db.select().from(sites),
-      db.select({ siteId: cells.siteId, technology: cells.technology, availability: cells.availability, congestion: cells.congestion, throughput: cells.throughput }).from(cells),
-      db.select({ siteId: networkKpis.siteId, availability: networkKpis.availability, traffic: networkKpis.trafficTb, congestion: networkKpis.congestion, throughput: networkKpis.throughputMbps }).from(networkKpis).orderBy(desc(networkKpis.recordedAt)),
-      db.select({ siteId: complaints.siteId, total: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`).groupBy(complaints.siteId),
-      db.select({ region: customers.region, churnRisk: customers.churnRisk, total: sql<number>`count(*)` }).from(customers).groupBy(customers.region, customers.churnRisk),
-      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
-      db.select({ region: salesOpportunities.region, total: sql<number>`count(*)` }).from(salesOpportunities).groupBy(salesOpportunities.region),
-      db.select({ region: revenues.region, atRisk: sql<string>`sum(${revenues.atRisk})` }).from(revenues).groupBy(revenues.region),
+      db
+        .select({
+          siteId: cells.siteId,
+          technology: cells.technology,
+          availability: cells.availability,
+          congestion: cells.congestion,
+          throughput: cells.throughput,
+        })
+        .from(cells),
+      db
+        .select({
+          siteId: networkKpis.siteId,
+          availability: networkKpis.availability,
+          traffic: networkKpis.trafficTb,
+          congestion: networkKpis.congestion,
+          throughput: networkKpis.throughputMbps,
+        })
+        .from(networkKpis)
+        .orderBy(desc(networkKpis.recordedAt)),
+      db
+        .select({ siteId: complaints.siteId, total: sql<number>`count(*)` })
+        .from(complaints)
+        .where(sql`${complaints.status} <> 'resolved'`)
+        .groupBy(complaints.siteId),
+      db
+        .select({
+          region: customers.region,
+          churnRisk: customers.churnRisk,
+          total: sql<number>`count(*)`,
+        })
+        .from(customers)
+        .groupBy(customers.region, customers.churnRisk),
+      db
+        .select({
+          region: fiberInfrastructure.region,
+          availability: sql<string>`avg(${fiberInfrastructure.availability})`,
+        })
+        .from(fiberInfrastructure)
+        .groupBy(fiberInfrastructure.region),
+      db
+        .select({
+          region: salesOpportunities.region,
+          total: sql<number>`count(*)`,
+        })
+        .from(salesOpportunities)
+        .groupBy(salesOpportunities.region),
+      db
+        .select({
+          region: revenues.region,
+          atRisk: sql<string>`sum(${revenues.atRisk})`,
+        })
+        .from(revenues)
+        .groupBy(revenues.region),
     ]);
     if (!siteRows.length) return syntheticMapSites();
     const numberValue = (value: unknown) => Number(value ?? 0);
-    const average = (values: unknown[]) => values.length ? values.reduce<number>((sum, value) => sum + numberValue(value), 0) / values.length : 0;
-    const complaintsBySite = new Map(complaintRows.filter(row => row.siteId !== null).map(row => [row.siteId as number, numberValue(row.total)]));
-    const fiberByRegion = new Map(fiberRows.map(row => [row.region ?? "Unmapped region", numberValue(row.availability)]));
-    const salesByRegion = new Map(salesRows.map(row => [row.region ?? "Unmapped region", numberValue(row.total)]));
-    const revenueByRegion = new Map(revenueRows.map(row => [row.region ?? "Unmapped region", numberValue(row.atRisk)]));
-    const customersByRegion = new Map<string, { total: number; churnRisk: number[] }>();
+    const average = (values: unknown[]) =>
+      values.length
+        ? values.reduce<number>((sum, value) => sum + numberValue(value), 0) /
+          values.length
+        : 0;
+    const complaintsBySite = new Map(
+      complaintRows
+        .filter(row => row.siteId !== null)
+        .map(row => [row.siteId as number, numberValue(row.total)])
+    );
+    const fiberByRegion = new Map(
+      fiberRows.map(row => [
+        row.region ?? "Unmapped region",
+        numberValue(row.availability),
+      ])
+    );
+    const salesByRegion = new Map(
+      salesRows.map(row => [
+        row.region ?? "Unmapped region",
+        numberValue(row.total),
+      ])
+    );
+    const revenueByRegion = new Map(
+      revenueRows.map(row => [
+        row.region ?? "Unmapped region",
+        numberValue(row.atRisk),
+      ])
+    );
+    const customersByRegion = new Map<
+      string,
+      { total: number; churnRisk: number[] }
+    >();
     for (const row of customerRows) {
       const key = row.region ?? "Unmapped region";
       const current = customersByRegion.get(key) ?? { total: 0, churnRisk: [] };
@@ -98,9 +254,14 @@ export async function getPersistedMapSites() {
     return siteRows.map(site => {
       const region = site.region ?? site.name;
       const siteCells = cellRows.filter(row => row.siteId === site.id);
-      const siteKpis = kpiRows.filter(row => row.siteId === site.id).slice(0, 12);
+      const siteKpis = kpiRows
+        .filter(row => row.siteId === site.id)
+        .slice(0, 12);
       const metrics = siteKpis.length ? siteKpis : siteCells;
-      const customerData = customersByRegion.get(region) ?? { total: 0, churnRisk: [] };
+      const customerData = customersByRegion.get(region) ?? {
+        total: 0,
+        churnRisk: [],
+      };
       const status = site.status === "degraded" ? "warning" : site.status;
       return {
         id: site.siteCode,
@@ -123,67 +284,128 @@ export async function getPersistedMapSites() {
       } as const;
     });
   } catch (error) {
-    console.warn("[Database] Map sites query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Map sites query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return syntheticMapSites();
   }
 }
 
 export async function getPersistedNetworkOperations() {
+  if (isDemoMode()) return buildSyntheticNetworkOperations();
   const db = await getDb();
   if (!db) return buildSyntheticNetworkOperations();
   try {
-    const [cellRows, kpiRows, complaintRows, customerRows, fiberRows] = await Promise.all([
-      db.select({ cell: cells, site: sites }).from(cells).leftJoin(sites, eq(cells.siteId, sites.id)),
-      db.select().from(networkKpis).orderBy(desc(networkKpis.recordedAt)).limit(120),
-      db.select({ siteId: complaints.siteId, total: sql<number>`count(*)` }).from(complaints).where(sql`${complaints.status} <> 'resolved'`).groupBy(complaints.siteId),
-      db.select({ region: customers.region, total: sql<number>`count(*)` }).from(customers).groupBy(customers.region),
-      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
-    ]);
+    const [cellRows, kpiRows, complaintRows, customerRows, fiberRows] =
+      await Promise.all([
+        db
+          .select({ cell: cells, site: sites })
+          .from(cells)
+          .leftJoin(sites, eq(cells.siteId, sites.id)),
+        db
+          .select()
+          .from(networkKpis)
+          .orderBy(desc(networkKpis.recordedAt))
+          .limit(120),
+        db
+          .select({ siteId: complaints.siteId, total: sql<number>`count(*)` })
+          .from(complaints)
+          .where(sql`${complaints.status} <> 'resolved'`)
+          .groupBy(complaints.siteId),
+        db
+          .select({ region: customers.region, total: sql<number>`count(*)` })
+          .from(customers)
+          .groupBy(customers.region),
+        db
+          .select({
+            region: fiberInfrastructure.region,
+            availability: sql<string>`avg(${fiberInfrastructure.availability})`,
+          })
+          .from(fiberInfrastructure)
+          .groupBy(fiberInfrastructure.region),
+      ]);
     if (!cellRows.length) return buildSyntheticNetworkOperations();
     const numberValue = (value: unknown) => Number(value || 0);
-    const latestKpi = new Map<number, typeof kpiRows[number]>();
-    kpiRows.forEach(row => { if (!latestKpi.has(row.siteId)) latestKpi.set(row.siteId, row); });
-    const complaintBySite = new Map<number, number>();
-    complaintRows.forEach(row => { if (row.siteId !== null) complaintBySite.set(row.siteId, numberValue(row.total)); });
-    const customersByRegion = new Map<string, number>();
-    customerRows.forEach(row => { if (row.region) customersByRegion.set(row.region, numberValue(row.total)); });
-    const fiberByRegion = new Map<string, number>();
-    fiberRows.forEach(row => { if (row.region && row.availability !== null) fiberByRegion.set(row.region, numberValue(row.availability)); });
-    const cellsBySite = new Map<number, number>();
-    cellRows.forEach(row => cellsBySite.set(row.cell.siteId, (cellsBySite.get(row.cell.siteId) ?? 0) + 1));
-    const persistedCells: NetworkCell[] = cellRows.map(({ cell, site }, index) => {
-      const kpi = latestKpi.get(cell.siteId);
-      const availability = numberValue(cell.availability ?? kpi?.availability);
-      const congestion = numberValue(cell.congestion ?? kpi?.congestion);
-      const throughput = numberValue(cell.throughput ?? kpi?.throughputMbps);
-      const region = site?.region ?? site?.name ?? "Unmapped region";
-      const siteKey = site?.siteCode ?? `SITE-${cell.siteId}`;
-      const siteName = site?.name ?? siteKey;
-      const siteCustomers = customersByRegion.get(region) ?? 0;
-      const siteComplaints = complaintBySite.get(cell.siteId) ?? 0;
-      return {
-        cellCode: cell.cellCode,
-        siteId: siteKey,
-        siteName,
-        technology: cell.technology,
-        availability,
-        traffic: Number((numberValue(kpi?.trafficTb) / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)).toFixed(3)),
-        congestion,
-        throughput,
-        coverage: availability,
-        impactedCustomers: Math.round(siteCustomers / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)),
-        complaints: Math.round(siteComplaints / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)),
-        fiber: fiberByRegion.get(region) ?? null,
-        reason: networkReason(availability, congestion, throughput),
-        status: networkStatus(availability, congestion),
-      } satisfies NetworkCell;
+    const latestKpi = new Map<number, (typeof kpiRows)[number]>();
+    kpiRows.forEach(row => {
+      if (!latestKpi.has(row.siteId)) latestKpi.set(row.siteId, row);
     });
-    const latestTimestamp = kpiRows[0]?.recordedAt?.toISOString() ?? new Date().toISOString();
-    const result = assembleNetworkOperations("persisted", persistedCells, latestTimestamp);
+    const complaintBySite = new Map<number, number>();
+    complaintRows.forEach(row => {
+      if (row.siteId !== null)
+        complaintBySite.set(row.siteId, numberValue(row.total));
+    });
+    const customersByRegion = new Map<string, number>();
+    customerRows.forEach(row => {
+      if (row.region) customersByRegion.set(row.region, numberValue(row.total));
+    });
+    const fiberByRegion = new Map<string, number>();
+    fiberRows.forEach(row => {
+      if (row.region && row.availability !== null)
+        fiberByRegion.set(row.region, numberValue(row.availability));
+    });
+    const cellsBySite = new Map<number, number>();
+    cellRows.forEach(row =>
+      cellsBySite.set(
+        row.cell.siteId,
+        (cellsBySite.get(row.cell.siteId) ?? 0) + 1
+      )
+    );
+    const persistedCells: NetworkCell[] = cellRows.map(
+      ({ cell, site }, index) => {
+        const kpi = latestKpi.get(cell.siteId);
+        const availability = numberValue(
+          cell.availability ?? kpi?.availability
+        );
+        const congestion = numberValue(cell.congestion ?? kpi?.congestion);
+        const throughput = numberValue(cell.throughput ?? kpi?.throughputMbps);
+        const region = site?.region ?? site?.name ?? "Unmapped region";
+        const siteKey = site?.siteCode ?? `SITE-${cell.siteId}`;
+        const siteName = site?.name ?? siteKey;
+        const siteCustomers = customersByRegion.get(region) ?? 0;
+        const siteComplaints = complaintBySite.get(cell.siteId) ?? 0;
+        return {
+          cellCode: cell.cellCode,
+          siteId: siteKey,
+          siteName,
+          technology: cell.technology,
+          availability,
+          traffic: Number(
+            (
+              numberValue(kpi?.trafficTb) /
+              Math.max(1, cellsBySite.get(cell.siteId) ?? 1)
+            ).toFixed(3)
+          ),
+          congestion,
+          throughput,
+          coverage: availability,
+          impactedCustomers: Math.round(
+            siteCustomers / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)
+          ),
+          complaints: Math.round(
+            siteComplaints / Math.max(1, cellsBySite.get(cell.siteId) ?? 1)
+          ),
+          fiber: fiberByRegion.get(region) ?? null,
+          reason: networkReason(availability, congestion, throughput),
+          status: networkStatus(availability, congestion),
+        } satisfies NetworkCell;
+      }
+    );
+    const latestTimestamp =
+      kpiRows[0]?.recordedAt?.toISOString() ?? new Date().toISOString();
+    const result = assembleNetworkOperations(
+      "persisted",
+      persistedCells,
+      latestTimestamp
+    );
     const trendRows = [...kpiRows].reverse().slice(-5);
     if (trendRows.length) {
       result.trends = trendRows.map(row => ({
-        label: new Date(row.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        label: new Date(row.recordedAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         availability: numberValue(row.availability),
         congestion: numberValue(row.congestion),
         throughput: numberValue(row.throughputMbps),
@@ -191,122 +413,309 @@ export async function getPersistedNetworkOperations() {
     }
     return result;
   } catch (error) {
-    console.warn("[Database] Network operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Network operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticNetworkOperations();
   }
 }
 
 export async function getPersistedCustomerExperience() {
+  if (isDemoMode()) return buildSyntheticCustomerExperience();
   const db = await getDb();
   if (!db) return buildSyntheticCustomerExperience();
   try {
-    const [customerRows, complaintRows, kpiRows, fiberRows] = await Promise.all([
-      db.select({ region: customers.region, customers: sql<number>`count(*)`, churnRisk: sql<string>`avg(${customers.churnRisk})` }).from(customers).groupBy(customers.region),
-      db.select({ region: customers.region, complaints: sql<number>`count(*)` }).from(complaints).leftJoin(customers, eq(complaints.customerId, customers.id)).where(sql`${complaints.status} <> 'resolved'`).groupBy(customers.region),
-      db.select({ region: sites.region, availability: sql<string>`avg(${networkKpis.availability})`, congestion: sql<string>`avg(${networkKpis.congestion})`, throughput: sql<string>`avg(${networkKpis.throughputMbps})` }).from(networkKpis).leftJoin(sites, eq(networkKpis.siteId, sites.id)).groupBy(sites.region),
-      db.select({ region: fiberInfrastructure.region, fiber: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
-    ]);
-    if (!customerRows.length || !kpiRows.length) return buildSyntheticCustomerExperience();
-    const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };
-    const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
-    const kpiByRegion = new Map(kpiRows.flatMap(row => {
-      const availability = Number(row.availability);
-      const congestion = Number(row.congestion);
-      const throughput = Number(row.throughput);
-      return row.region && [availability, congestion, throughput].every(Number.isFinite) ? [[row.region, { availability, congestion, throughput }] as const] : [];
-    }));
-    const fiberByRegion = new Map(fiberRows.flatMap(row => {
-      const fiber = Number(row.fiber);
-      return row.region && Number.isFinite(fiber) ? [[row.region, fiber] as const] : [];
-    }));
-    const regions = Array.from(new Set(customerRows.map(row => row.region ?? "Unmapped"))).filter(region => kpiByRegion.has(region));
+    const [customerRows, complaintRows, kpiRows, fiberRows] = await Promise.all(
+      [
+        db
+          .select({
+            region: customers.region,
+            customers: sql<number>`count(*)`,
+            churnRisk: sql<string>`avg(${customers.churnRisk})`,
+          })
+          .from(customers)
+          .groupBy(customers.region),
+        db
+          .select({
+            region: customers.region,
+            complaints: sql<number>`count(*)`,
+          })
+          .from(complaints)
+          .leftJoin(customers, eq(complaints.customerId, customers.id))
+          .where(sql`${complaints.status} <> 'resolved'`)
+          .groupBy(customers.region),
+        db
+          .select({
+            region: sites.region,
+            availability: sql<string>`avg(${networkKpis.availability})`,
+            congestion: sql<string>`avg(${networkKpis.congestion})`,
+            throughput: sql<string>`avg(${networkKpis.throughputMbps})`,
+          })
+          .from(networkKpis)
+          .leftJoin(sites, eq(networkKpis.siteId, sites.id))
+          .groupBy(sites.region),
+        db
+          .select({
+            region: fiberInfrastructure.region,
+            fiber: sql<string>`avg(${fiberInfrastructure.availability})`,
+          })
+          .from(fiberInfrastructure)
+          .groupBy(fiberInfrastructure.region),
+      ]
+    );
+    if (!customerRows.length || !kpiRows.length)
+      return buildSyntheticCustomerExperience();
+    const numberValue = (value: unknown) => {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : 0;
+    };
+    const complaintByRegion = new Map(
+      complaintRows.map(row => [
+        row.region ?? "Unmapped",
+        numberValue(row.complaints),
+      ])
+    );
+    const kpiByRegion = new Map(
+      kpiRows.flatMap(row => {
+        const availability = Number(row.availability);
+        const congestion = Number(row.congestion);
+        const throughput = Number(row.throughput);
+        return row.region &&
+          [availability, congestion, throughput].every(Number.isFinite)
+          ? [[row.region, { availability, congestion, throughput }] as const]
+          : [];
+      })
+    );
+    const fiberByRegion = new Map(
+      fiberRows.flatMap(row => {
+        const fiber = Number(row.fiber);
+        return row.region && Number.isFinite(fiber)
+          ? [[row.region, fiber] as const]
+          : [];
+      })
+    );
+    const regions = Array.from(
+      new Set(customerRows.map(row => row.region ?? "Unmapped"))
+    ).filter(region => kpiByRegion.has(region));
     const inputs: CustomerExperienceAreaInput[] = regions.flatMap(region => {
-      const customerRow = customerRows.find(row => (row.region ?? "Unmapped") === region);
+      const customerRow = customerRows.find(
+        row => (row.region ?? "Unmapped") === region
+      );
       const kpi = kpiByRegion.get(region);
       if (!customerRow || !kpi) return [];
-      return [{ id: region, name: region, region, customers: numberValue(customerRow.customers), complaints: complaintByRegion.get(region) ?? 0, churnRisk: numberValue(customerRow.churnRisk), availability: kpi.availability, congestion: kpi.congestion, throughput: kpi.throughput, fiber: fiberByRegion.get(region) ?? null, source: "persisted" }];
+      return [
+        {
+          id: region,
+          name: region,
+          region,
+          customers: numberValue(customerRow.customers),
+          complaints: complaintByRegion.get(region) ?? 0,
+          churnRisk: numberValue(customerRow.churnRisk),
+          availability: kpi.availability,
+          congestion: kpi.congestion,
+          throughput: kpi.throughput,
+          fiber: fiberByRegion.get(region) ?? null,
+          source: "persisted",
+        },
+      ];
     });
     return assembleCustomerExperience("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Customer experience query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Customer experience query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticCustomerExperience();
   }
 }
 
 export async function getPersistedCustomerOperations() {
+  if (isDemoMode()) return buildSyntheticCustomers();
   const db = await getDb();
   if (!db) return buildSyntheticCustomers();
   try {
     const [customerRows, complaintRows, siteRows, kpiRows] = await Promise.all([
-      db.select({ region: customers.region, customers: sql<number>`count(*)`, enterpriseCustomers: sql<number>`sum(case when ${customers.segment} = 'enterprise' then 1 else 0 end)`, highValueCustomers: sql<number>`sum(case when ${customers.segment} = 'high_value' then 1 else 0 end)`, highChurnCustomers: sql<number>`sum(case when ${customers.churnRisk} >= 7 then 1 else 0 end)`, churnRisk: sql<string>`avg(${customers.churnRisk})` }).from(customers).groupBy(customers.region),
-      db.select({ region: customers.region, complaints: sql<number>`count(*)` }).from(complaints).leftJoin(customers, eq(complaints.customerId, customers.id)).where(sql`${complaints.status} <> 'resolved'`).groupBy(customers.region),
-      db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
-      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
+      db
+        .select({
+          region: customers.region,
+          customers: sql<number>`count(*)`,
+          enterpriseCustomers: sql<number>`sum(case when ${customers.segment} = 'enterprise' then 1 else 0 end)`,
+          highValueCustomers: sql<number>`sum(case when ${customers.segment} = 'high_value' then 1 else 0 end)`,
+          highChurnCustomers: sql<number>`sum(case when ${customers.churnRisk} >= 7 then 1 else 0 end)`,
+          churnRisk: sql<string>`avg(${customers.churnRisk})`,
+        })
+        .from(customers)
+        .groupBy(customers.region),
+      db
+        .select({ region: customers.region, complaints: sql<number>`count(*)` })
+        .from(complaints)
+        .leftJoin(customers, eq(complaints.customerId, customers.id))
+        .where(sql`${complaints.status} <> 'resolved'`)
+        .groupBy(customers.region),
+      db
+        .select({
+          id: sites.id,
+          siteCode: sites.siteCode,
+          name: sites.name,
+          region: sites.region,
+          latitude: sites.latitude,
+          longitude: sites.longitude,
+        })
+        .from(sites),
+      db
+        .select({
+          siteId: networkKpis.siteId,
+          congestion: sql<string>`avg(${networkKpis.congestion})`,
+        })
+        .from(networkKpis)
+        .groupBy(networkKpis.siteId),
     ]);
-    if (!customerRows.length || !siteRows.length) return buildSyntheticCustomers();
-    const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };
-    const complaintByRegion = new Map(complaintRows.map(row => [row.region ?? "Unmapped", numberValue(row.complaints)]));
-    const kpiBySite = new Map(kpiRows.flatMap(row => {
-      const congestion = Number(row.congestion);
-      return Number.isFinite(congestion) ? [[row.siteId, congestion] as const] : [];
-    }));
+    if (!customerRows.length || !siteRows.length)
+      return buildSyntheticCustomers();
+    const numberValue = (value: unknown) => {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : 0;
+    };
+    const complaintByRegion = new Map(
+      complaintRows.map(row => [
+        row.region ?? "Unmapped",
+        numberValue(row.complaints),
+      ])
+    );
+    const kpiBySite = new Map(
+      kpiRows.flatMap(row => {
+        const congestion = Number(row.congestion);
+        return Number.isFinite(congestion)
+          ? [[row.siteId, congestion] as const]
+          : [];
+      })
+    );
     const inputs: CustomerAreaInput[] = customerRows.flatMap(customerRow => {
       const region = customerRow.region ?? "Unmapped";
-      const regionSite = siteRows.find(site => (site.region ?? site.name ?? "Unmapped") === region);
-      const regionSites = siteRows.filter(site => (site.region ?? site.name ?? "Unmapped") === region);
+      const regionSite = siteRows.find(
+        site => (site.region ?? site.name ?? "Unmapped") === region
+      );
+      const regionSites = siteRows.filter(
+        site => (site.region ?? site.name ?? "Unmapped") === region
+      );
       const latitude = regionSite ? Number(regionSite.latitude) : NaN;
       const longitude = regionSite ? Number(regionSite.longitude) : NaN;
-      if (!regionSite?.siteCode || !Number.isFinite(latitude) || !Number.isFinite(longitude) || customerRow.customers === null) return [];
-      const congestedCells = regionSites.reduce((sum, site) => sum + ((kpiBySite.get(site.id) ?? 0) >= 70 ? 1 : 0), 0);
-      return [{ id: regionSite.siteCode, name: regionSite.name, region, customers: numberValue(customerRow.customers), enterpriseCustomers: numberValue(customerRow.enterpriseCustomers), highValueCustomers: numberValue(customerRow.highValueCustomers), highChurnCustomers: numberValue(customerRow.highChurnCustomers), churnRisk: numberValue(customerRow.churnRisk), density: null, latitude, longitude, congestedCells, nearestCongestedCellKm: null, complaints: complaintByRegion.get(region) ?? 0, source: "persisted" }];
+      if (
+        !regionSite?.siteCode ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude) ||
+        customerRow.customers === null
+      )
+        return [];
+      const congestedCells = regionSites.reduce(
+        (sum, site) => sum + ((kpiBySite.get(site.id) ?? 0) >= 70 ? 1 : 0),
+        0
+      );
+      return [
+        {
+          id: regionSite.siteCode,
+          name: regionSite.name,
+          region,
+          customers: numberValue(customerRow.customers),
+          enterpriseCustomers: numberValue(customerRow.enterpriseCustomers),
+          highValueCustomers: numberValue(customerRow.highValueCustomers),
+          highChurnCustomers: numberValue(customerRow.highChurnCustomers),
+          churnRisk: numberValue(customerRow.churnRisk),
+          density: null,
+          latitude,
+          longitude,
+          congestedCells,
+          nearestCongestedCellKm: null,
+          complaints: complaintByRegion.get(region) ?? 0,
+          source: "persisted",
+        },
+      ];
     });
     return assembleCustomerOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Customer operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Customer operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticCustomers();
   }
 }
 
 export async function getPersistedComplaintOperations() {
+  if (isDemoMode()) return buildSyntheticComplaints();
   const db = await getDb();
   if (!db) return buildSyntheticComplaints();
   try {
     const [complaintRows, cellRows] = await Promise.all([
-      db.select({ complaint: complaints, site: sites, customer: customers }).from(complaints).leftJoin(sites, eq(complaints.siteId, sites.id)).leftJoin(customers, eq(complaints.customerId, customers.id)),
-      db.select({ siteId: cells.siteId, cellCode: cells.cellCode, congestion: cells.congestion, availability: cells.availability }).from(cells),
+      db
+        .select({ complaint: complaints, site: sites, customer: customers })
+        .from(complaints)
+        .leftJoin(sites, eq(complaints.siteId, sites.id))
+        .leftJoin(customers, eq(complaints.customerId, customers.id)),
+      db
+        .select({
+          siteId: cells.siteId,
+          cellCode: cells.cellCode,
+          congestion: cells.congestion,
+          availability: cells.availability,
+        })
+        .from(cells),
     ]);
     if (!complaintRows.length) return buildSyntheticComplaints();
     const numberValue = (value: unknown) => Number(value ?? 0);
     const worstCellsBySite = new Map<number, string[]>();
     cellRows.forEach(row => {
-      const isWorst = numberValue(row.congestion) >= 70 || numberValue(row.availability) < 95;
-      if (isWorst) worstCellsBySite.set(row.siteId, [...(worstCellsBySite.get(row.siteId) ?? []), row.cellCode]);
+      const isWorst =
+        numberValue(row.congestion) >= 70 || numberValue(row.availability) < 95;
+      if (isWorst)
+        worstCellsBySite.set(row.siteId, [
+          ...(worstCellsBySite.get(row.siteId) ?? []),
+          row.cellCode,
+        ]);
     });
-    const records: ComplaintRecord[] = complaintRows.map(({ complaint, site, customer }) => {
-      const worstCells = complaint.siteId ? (worstCellsBySite.get(complaint.siteId) ?? []) : [];
-      const category = complaint.category || "Uncategorized";
-      const networkRelated = isNetworkComplaint(category) || worstCells.length > 0;
-      const region = site?.region ?? customer?.region ?? site?.name ?? "Unmapped region";
-      const latitude = site?.latitude === null || site?.latitude === undefined ? null : numberValue(site.latitude);
-      const longitude = site?.longitude === null || site?.longitude === undefined ? null : numberValue(site.longitude);
-      return {
-        id: String(complaint.id),
-        category,
-        severity: complaint.severity,
-        status: complaint.status,
-        count: 1,
-        region,
-        siteId: complaint.siteId ? String(complaint.siteId) : null,
-        latitude: latitude !== null && Number.isFinite(latitude) ? latitude : null,
-        longitude: longitude !== null && Number.isFinite(longitude) ? longitude : null,
-        networkRelated,
-        coveredWorstCellCount: networkRelated && worstCells.length ? 1 : 0,
-        worstCellCodes: worstCells.slice(0, 3),
-      };
-    });
+    const records: ComplaintRecord[] = complaintRows.map(
+      ({ complaint, site, customer }) => {
+        const worstCells = complaint.siteId
+          ? (worstCellsBySite.get(complaint.siteId) ?? [])
+          : [];
+        const category = complaint.category || "Uncategorized";
+        const networkRelated =
+          isNetworkComplaint(category) || worstCells.length > 0;
+        const region =
+          site?.region ?? customer?.region ?? site?.name ?? "Unmapped region";
+        const latitude =
+          site?.latitude === null || site?.latitude === undefined
+            ? null
+            : numberValue(site.latitude);
+        const longitude =
+          site?.longitude === null || site?.longitude === undefined
+            ? null
+            : numberValue(site.longitude);
+        return {
+          id: String(complaint.id),
+          category,
+          severity: complaint.severity,
+          status: complaint.status,
+          count: 1,
+          region,
+          siteId: complaint.siteId ? String(complaint.siteId) : null,
+          latitude:
+            latitude !== null && Number.isFinite(latitude) ? latitude : null,
+          longitude:
+            longitude !== null && Number.isFinite(longitude) ? longitude : null,
+          networkRelated,
+          coveredWorstCellCount: networkRelated && worstCells.length ? 1 : 0,
+          worstCellCodes: worstCells.slice(0, 3),
+        };
+      }
+    );
     return assembleComplaintOperations("persisted", records);
   } catch (error) {
-    console.warn("[Database] Complaint operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Complaint operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticComplaints();
   }
 }
@@ -375,7 +784,9 @@ const LOCAL_ADMIN_PASSWORD = "admin";
 const LOCAL_ADMIN_SALT = "smart-analytics-local-v1";
 export const TEMPORARY_PASSWORD_TTL_DAYS = 7;
 export function temporaryPasswordExpiry(now = new Date()) {
-  return new Date(now.getTime() + TEMPORARY_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000);
+  return new Date(
+    now.getTime() + TEMPORARY_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000
+  );
 }
 export const hashLocalPassword = (password: string, salt = LOCAL_ADMIN_SALT) =>
   scryptSync(password, salt, 64).toString("hex");
@@ -399,16 +810,14 @@ export async function ensureLocalAdmin() {
   if (!db) return undefined;
   const existing = await getUserByUsername(LOCAL_ADMIN_USERNAME);
   if (existing) return existing;
-  await db
-    .insert(users)
-    .values({
-      openId: "local_admin",
-      username: LOCAL_ADMIN_USERNAME,
-      passwordHash: hashLocalPassword(LOCAL_ADMIN_PASSWORD),
-      name: "System Administrator",
-      loginMethod: "local",
-      role: "admin",
-    });
+  await db.insert(users).values({
+    openId: "local_admin",
+    username: LOCAL_ADMIN_USERNAME,
+    passwordHash: hashLocalPassword(LOCAL_ADMIN_PASSWORD),
+    name: "System Administrator",
+    loginMethod: "local",
+    role: "admin",
+  });
   return getUserByUsername(LOCAL_ADMIN_USERNAME);
 }
 
@@ -427,7 +836,17 @@ export type PublicLocalUser = {
 };
 
 function toPublicLocalUser(user: typeof users.$inferSelect): PublicLocalUser {
-  return { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role, isActive: user.isActive, temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt, createdAt: user.createdAt, lastSignedIn: user.lastSignedIn };
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+    temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt,
+    createdAt: user.createdAt,
+    lastSignedIn: user.lastSignedIn,
+  };
 }
 
 export async function listLocalUsers() {
@@ -437,60 +856,148 @@ export async function listLocalUsers() {
   return result.map(toPublicLocalUser);
 }
 
-export async function createLocalUser(input: { username: string; password: string; name: string; email?: string; role: LocalRole; actorUserId: number }) {
+export async function createLocalUser(input: {
+  username: string;
+  password: string;
+  name: string;
+  email?: string;
+  role: LocalRole;
+  actorUserId: number;
+}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const username = input.username.trim().toLowerCase();
-  if (await getUserByUsername(username)) throw new Error("Username already exists");
-  await db.insert(users).values({ openId: `local_${randomUUID()}`, username, passwordHash: hashLocalPassword(input.password), temporaryPasswordExpiresAt: temporaryPasswordExpiry(), name: input.name.trim(), email: input.email?.trim() || null, loginMethod: "local", role: input.role });
+  if (await getUserByUsername(username))
+    throw new Error("Username already exists");
+  await db
+    .insert(users)
+    .values({
+      openId: `local_${randomUUID()}`,
+      username,
+      passwordHash: hashLocalPassword(input.password),
+      temporaryPasswordExpiresAt: temporaryPasswordExpiry(),
+      name: input.name.trim(),
+      email: input.email?.trim() || null,
+      loginMethod: "local",
+      role: input.role,
+    });
   const created = await getUserByUsername(username);
   if (!created) throw new Error("User was created but could not be loaded");
-  await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.created", resource: username, metadata: JSON.stringify({ role: input.role }) });
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.actorUserId,
+      action: "user.created",
+      resource: username,
+      metadata: JSON.stringify({ role: input.role }),
+    });
   return toPublicLocalUser(created);
 }
 
-export async function updateLocalUserRole(input: { userId: number; role: LocalRole; actorUserId: number }) {
+export async function updateLocalUserRole(input: {
+  userId: number;
+  role: LocalRole;
+  actorUserId: number;
+}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const target = await getUserById(input.userId);
   if (!target) throw new Error("User not found");
   if (target.role === "admin" && input.role !== "admin") {
-    const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin"));
-    if (admins.length <= 1) throw new Error("The last administrator cannot be demoted");
+    const admins = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role, "admin"));
+    if (admins.length <= 1)
+      throw new Error("The last administrator cannot be demoted");
   }
-  await db.update(users).set({ role: input.role }).where(eq(users.id, input.userId));
-  await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.role_updated", resource: target.username || String(target.id), metadata: JSON.stringify({ from: target.role, to: input.role }) });
+  await db
+    .update(users)
+    .set({ role: input.role })
+    .where(eq(users.id, input.userId));
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.actorUserId,
+      action: "user.role_updated",
+      resource: target.username || String(target.id),
+      metadata: JSON.stringify({ from: target.role, to: input.role }),
+    });
   const updated = await getUserById(input.userId);
   return updated ? toPublicLocalUser(updated) : undefined;
 }
 
-export async function resetLocalUserPassword(input: { userId: number; password: string; actorUserId: number }) {
+export async function resetLocalUserPassword(input: {
+  userId: number;
+  password: string;
+  actorUserId: number;
+}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const target = await getUserById(input.userId);
   if (!target) throw new Error("User not found");
-  await db.update(users).set({ passwordHash: hashLocalPassword(input.password), temporaryPasswordExpiresAt: temporaryPasswordExpiry(), loginMethod: "local" }).where(eq(users.id, input.userId));
-  await db.insert(auditLogs).values({ userId: input.actorUserId, action: "user.password_reset", resource: target.username || String(target.id), metadata: JSON.stringify({ targetUserId: target.id }) });
+  await db
+    .update(users)
+    .set({
+      passwordHash: hashLocalPassword(input.password),
+      temporaryPasswordExpiresAt: temporaryPasswordExpiry(),
+      loginMethod: "local",
+    })
+    .where(eq(users.id, input.userId));
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.actorUserId,
+      action: "user.password_reset",
+      resource: target.username || String(target.id),
+      metadata: JSON.stringify({ targetUserId: target.id }),
+    });
   return { success: true } as const;
 }
 
-export async function setLocalUserActive(input: { userId: number; isActive: boolean; actorUserId: number }) {
+export async function setLocalUserActive(input: {
+  userId: number;
+  isActive: boolean;
+  actorUserId: number;
+}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const target = await getUserById(input.userId);
   if (!target) throw new Error("User not found");
-  if (!input.isActive && target.id === input.actorUserId) throw new Error("You cannot disable your own account");
+  if (!input.isActive && target.id === input.actorUserId)
+    throw new Error("You cannot disable your own account");
   if (!input.isActive && target.role === "admin" && target.isActive) {
-    const activeAdmins = await db.select({ id: users.id }).from(users).where(and(eq(users.role, "admin"), eq(users.isActive, true)));
-    if (activeAdmins.length <= 1) throw new Error("The last active administrator cannot be disabled");
+    const activeAdmins = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, "admin"), eq(users.isActive, true)));
+    if (activeAdmins.length <= 1)
+      throw new Error("The last active administrator cannot be disabled");
   }
-  await db.update(users).set({ isActive: input.isActive }).where(eq(users.id, input.userId));
-  await db.insert(auditLogs).values({ userId: input.actorUserId, action: input.isActive ? "user.enabled" : "user.disabled", resource: target.username || String(target.id), metadata: JSON.stringify({ targetUserId: target.id, isActive: input.isActive }) });
+  await db
+    .update(users)
+    .set({ isActive: input.isActive })
+    .where(eq(users.id, input.userId));
+  await db
+    .insert(auditLogs)
+    .values({
+      userId: input.actorUserId,
+      action: input.isActive ? "user.enabled" : "user.disabled",
+      resource: target.username || String(target.id),
+      metadata: JSON.stringify({
+        targetUserId: target.id,
+        isActive: input.isActive,
+      }),
+    });
   const updated = await getUserById(input.userId);
   return updated ? toPublicLocalUser(updated) : undefined;
 }
 
-export async function updateCurrentUserProfile(input: { userId: number; name: string; email?: string | null }) {
+export async function updateCurrentUserProfile(input: {
+  userId: number;
+  name: string;
+  email?: string | null;
+}) {
   const name = input.name.trim();
   const email = input.email?.trim() || null;
   if (!name) throw new Error("Name is required");
@@ -594,33 +1101,33 @@ export async function createDataSource(input: {
 }) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db
-    .insert(dataSources)
-    .values({
+  const result = await db.insert(dataSources).values({
+    datasetKey: input.datasetKey,
+    name: input.name,
+    type: input.type,
+    connectionRef: input.connectionRef,
+    secretEnv: input.secretEnv,
+    status: "pending",
+  });
+  await db.insert(auditLogs).values({
+    userId: input.userId,
+    action: "data_source.created",
+    resource: input.name,
+    metadata: JSON.stringify({
       datasetKey: input.datasetKey,
-      name: input.name,
       type: input.type,
       connectionRef: input.connectionRef,
       secretEnv: input.secretEnv,
-      status: "pending",
-    });
-  await db
-    .insert(auditLogs)
-    .values({
-      userId: input.userId,
-      action: "data_source.created",
-      resource: input.name,
-      metadata: JSON.stringify({
-        datasetKey: input.datasetKey,
-        type: input.type,
-        connectionRef: input.connectionRef,
-        secretEnv: input.secretEnv,
-      }),
-    });
+    }),
+  });
   return result;
 }
 
-export async function updateDataSourceSync(sourceId: number, status: string, latencyMs?: number) {
+export async function updateDataSourceSync(
+  sourceId: number,
+  status: string,
+  latencyMs?: number
+) {
   const db = await getDb();
   if (!db) return;
   const now = new Date();
@@ -648,19 +1155,17 @@ export async function createImportRun(input: {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.insert(importRuns).values(input);
-  await db
-    .insert(auditLogs)
-    .values({
-      userId: input.userId,
-      action: "data_import.received",
-      resource: input.fileName || input.method,
-      metadata: JSON.stringify({
-        method: input.method,
-        rowCount: input.rowCount,
-        validRows: input.validRows,
-        invalidRows: input.invalidRows,
-      }),
-    });
+  await db.insert(auditLogs).values({
+    userId: input.userId,
+    action: "data_import.received",
+    resource: input.fileName || input.method,
+    metadata: JSON.stringify({
+      method: input.method,
+      rowCount: input.rowCount,
+      validRows: input.validRows,
+      invalidRows: input.invalidRows,
+    }),
+  });
   return result;
 }
 
@@ -675,20 +1180,20 @@ export async function saveImportMapping(input: {
     .update(importRuns)
     .set({ mappingJson: input.mappingJson })
     .where(eq(importRuns.id, input.importRunId));
-  await db
-    .insert(auditLogs)
-    .values({
-      userId: input.userId,
-      action: "data_import.mapping_saved",
-      resource: String(input.importRunId),
-      metadata: input.mappingJson,
-    });
+  await db.insert(auditLogs).values({
+    userId: input.userId,
+    action: "data_import.mapping_saved",
+    resource: String(input.importRunId),
+    metadata: input.mappingJson,
+  });
 }
 
 export async function listImportRuns(userId: number, datasetKey?: string) {
   const db = await getDb();
   if (!db) return [];
-  const filters = datasetKey ? and(eq(importRuns.userId, userId), eq(importRuns.datasetKey, datasetKey)) : eq(importRuns.userId, userId);
+  const filters = datasetKey
+    ? and(eq(importRuns.userId, userId), eq(importRuns.datasetKey, datasetKey))
+    : eq(importRuns.userId, userId);
   return db
     .select()
     .from(importRuns)
@@ -699,18 +1204,32 @@ export async function listImportRuns(userId: number, datasetKey?: string) {
 
 // Feature queries are kept server-side so credentials and authorization never reach the client.
 
-
 export async function getPersistedInfrastructureOperations() {
+  if (isDemoMode()) return buildSyntheticInfrastructure();
   const db = await getDb();
   if (!db) return buildSyntheticInfrastructure();
   try {
     const [fiberRows, siteRows, cellRows] = await Promise.all([
       db.select().from(fiberInfrastructure),
-      db.select({ id: sites.id, siteCode: sites.siteCode, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
-      db.select({ siteId: cells.siteId, congestion: cells.congestion }).from(cells),
+      db
+        .select({
+          id: sites.id,
+          siteCode: sites.siteCode,
+          name: sites.name,
+          region: sites.region,
+          latitude: sites.latitude,
+          longitude: sites.longitude,
+        })
+        .from(sites),
+      db
+        .select({ siteId: cells.siteId, congestion: cells.congestion })
+        .from(cells),
     ]);
     if (!fiberRows.length) return buildSyntheticInfrastructure();
-    const numberValue = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : null; };
+    const numberValue = (value: unknown) => {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    };
     const congestionByRegion = new Map<string, number[]>();
     cellRows.forEach(row => {
       const congestion = numberValue(row.congestion);
@@ -721,178 +1240,539 @@ export async function getPersistedInfrastructureOperations() {
       values.push(congestion);
       congestionByRegion.set(region, values);
     });
-    const records = fiberRows.flatMap((row) => {
+    const records = fiberRows.flatMap(row => {
       const region = row.region;
-      const regionSites = region ? siteRows.filter(site => (site.region ?? site.name) === region) : [];
+      const regionSites = region
+        ? siteRows.filter(site => (site.region ?? site.name) === region)
+        : [];
       const site = regionSites[0];
       const latitude = numberValue(row.latitude ?? site?.latitude);
       const longitude = numberValue(row.longitude ?? site?.longitude);
-      const congestionValues = region ? congestionByRegion.get(region) ?? [] : [];
-      const congestion = congestionValues.length ? congestionValues.reduce((sum, value) => sum + value, 0) / congestionValues.length : null;
+      const congestionValues = region
+        ? (congestionByRegion.get(region) ?? [])
+        : [];
+      const congestion = congestionValues.length
+        ? congestionValues.reduce((sum, value) => sum + value, 0) /
+          congestionValues.length
+        : null;
       const fiberAvailability = numberValue(row.availability);
-      if (!region || latitude === null || longitude === null || congestion === null || fiberAvailability === null) return [];
-      return [{ id: String(row.id), nodeCode: row.nodeCode, region, latitude, longitude, fiberAvailability, congestion, status: row.status ?? "Unknown", backhaul: "unknown" as const, plannedUpgrade: null, linkCount: null }];
+      if (
+        !region ||
+        latitude === null ||
+        longitude === null ||
+        congestion === null ||
+        fiberAvailability === null
+      )
+        return [];
+      return [
+        {
+          id: String(row.id),
+          nodeCode: row.nodeCode,
+          region,
+          latitude,
+          longitude,
+          fiberAvailability,
+          congestion,
+          status: row.status ?? "Unknown",
+          backhaul: "unknown" as const,
+          plannedUpgrade: null,
+          linkCount: null,
+        },
+      ];
     });
     return assembleInfrastructureOperations("persisted", records);
   } catch (error) {
-    console.warn("[Database] Infrastructure operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Infrastructure operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticInfrastructure();
   }
 }
 
-
 export async function getPersistedSalesOperations() {
+  if (isDemoMode()) return buildSyntheticSales();
   const db = await getDb();
   if (!db) return buildSyntheticSales();
   try {
-    const [opportunityRows, customerRows, siteRows, kpiRows, fiberRows] = await Promise.all([
-      db.select().from(salesOpportunities),
-      db.select({ id: customers.id, externalRef: customers.externalRef, segment: customers.segment }).from(customers),
-      db.select({ id: sites.id, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
-      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
-      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
-    ]);
+    const [opportunityRows, customerRows, siteRows, kpiRows, fiberRows] =
+      await Promise.all([
+        db.select().from(salesOpportunities),
+        db
+          .select({
+            id: customers.id,
+            externalRef: customers.externalRef,
+            segment: customers.segment,
+          })
+          .from(customers),
+        db
+          .select({
+            id: sites.id,
+            name: sites.name,
+            region: sites.region,
+            latitude: sites.latitude,
+            longitude: sites.longitude,
+          })
+          .from(sites),
+        db
+          .select({
+            siteId: networkKpis.siteId,
+            congestion: sql<string>`avg(${networkKpis.congestion})`,
+          })
+          .from(networkKpis)
+          .groupBy(networkKpis.siteId),
+        db
+          .select({
+            region: fiberInfrastructure.region,
+            availability: sql<string>`avg(${fiberInfrastructure.availability})`,
+          })
+          .from(fiberInfrastructure)
+          .groupBy(fiberInfrastructure.region),
+      ]);
     if (!opportunityRows.length) return buildSyntheticSales();
-    const numberValue = (value: unknown) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
-    const kpiBySite = new Map(kpiRows.flatMap(row => {
-      const congestion = numberValue(row.congestion);
-      return congestion === null ? [] : [[row.siteId, congestion] as const];
-    }));
-    const fiberByRegion = new Map(fiberRows.flatMap(row => {
-      const availability = numberValue(row.availability);
-      return row.region && availability !== null ? [[row.region, availability] as const] : [];
-    }));
+    const numberValue = (value: unknown) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    };
+    const kpiBySite = new Map(
+      kpiRows.flatMap(row => {
+        const congestion = numberValue(row.congestion);
+        return congestion === null ? [] : [[row.siteId, congestion] as const];
+      })
+    );
+    const fiberByRegion = new Map(
+      fiberRows.flatMap(row => {
+        const availability = numberValue(row.availability);
+        return row.region && availability !== null
+          ? [[row.region, availability] as const]
+          : [];
+      })
+    );
     const inputs = opportunityRows.flatMap(opportunity => {
-      const customer = customerRows.find(item => item.id === opportunity.customerId);
+      const customer = customerRows.find(
+        item => item.id === opportunity.customerId
+      );
       const region = opportunity.region;
-      const site = region ? siteRows.find(item => (item.region ?? item.name) === region) : undefined;
+      const site = region
+        ? siteRows.find(item => (item.region ?? item.name) === region)
+        : undefined;
       const congestion = site ? kpiBySite.get(site.id) : undefined;
       const fiberReadiness = region ? fiberByRegion.get(region) : undefined;
       const latitude = site ? numberValue(site.latitude) : null;
       const longitude = site ? numberValue(site.longitude) : null;
-      if (!customer || !region || !site || congestion === undefined || fiberReadiness === undefined || latitude === null || longitude === null) return [];
-      return [{ id: String(opportunity.id), accountName: customer.externalRef, region, latitude, longitude, stage: opportunity.stage ?? "Unmapped stage", value: numberValue(opportunity.value) ?? 0, probability: numberValue(opportunity.probability) ?? 0, enterprise: customer.segment === "enterprise", customerSegment: customer.segment, networkReadiness: Math.max(0, 100 - congestion), fiberReadiness, siteName: site.name }];
+      if (
+        !customer ||
+        !region ||
+        !site ||
+        congestion === undefined ||
+        fiberReadiness === undefined ||
+        latitude === null ||
+        longitude === null
+      )
+        return [];
+      return [
+        {
+          id: String(opportunity.id),
+          accountName: customer.externalRef,
+          region,
+          latitude,
+          longitude,
+          stage: opportunity.stage ?? "Unmapped stage",
+          value: numberValue(opportunity.value) ?? 0,
+          probability: numberValue(opportunity.probability) ?? 0,
+          enterprise: customer.segment === "enterprise",
+          customerSegment: customer.segment,
+          networkReadiness: Math.max(0, 100 - congestion),
+          fiberReadiness,
+          siteName: site.name,
+        },
+      ];
     });
     return assembleSalesOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Sales operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Sales operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticSales();
   }
 }
 
-
 export async function getPersistedMarketingOperations() {
+  if (isDemoMode()) return buildSyntheticMarketing();
   const db = await getDb();
   if (!db) return buildSyntheticMarketing();
   try {
-    const [campaignRows, customerRows, complaintRows, siteRows, kpiRows, fiberRows] = await Promise.all([
+    const [
+      campaignRows,
+      customerRows,
+      complaintRows,
+      siteRows,
+      kpiRows,
+      fiberRows,
+    ] = await Promise.all([
       db.select().from(marketingCampaigns),
-      db.select({ id: customers.id, region: customers.region, segment: customers.segment, churnRisk: customers.churnRisk }).from(customers),
-      db.select({ siteId: complaints.siteId, severity: complaints.severity }).from(complaints),
-      db.select({ id: sites.id, name: sites.name, region: sites.region, latitude: sites.latitude, longitude: sites.longitude }).from(sites),
-      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
-      db.select({ region: fiberInfrastructure.region, availability: sql<string>`avg(${fiberInfrastructure.availability})` }).from(fiberInfrastructure).groupBy(fiberInfrastructure.region),
+      db
+        .select({
+          id: customers.id,
+          region: customers.region,
+          segment: customers.segment,
+          churnRisk: customers.churnRisk,
+        })
+        .from(customers),
+      db
+        .select({ siteId: complaints.siteId, severity: complaints.severity })
+        .from(complaints),
+      db
+        .select({
+          id: sites.id,
+          name: sites.name,
+          region: sites.region,
+          latitude: sites.latitude,
+          longitude: sites.longitude,
+        })
+        .from(sites),
+      db
+        .select({
+          siteId: networkKpis.siteId,
+          congestion: sql<string>`avg(${networkKpis.congestion})`,
+        })
+        .from(networkKpis)
+        .groupBy(networkKpis.siteId),
+      db
+        .select({
+          region: fiberInfrastructure.region,
+          availability: sql<string>`avg(${fiberInfrastructure.availability})`,
+        })
+        .from(fiberInfrastructure)
+        .groupBy(fiberInfrastructure.region),
     ]);
     if (!campaignRows.length) return buildSyntheticMarketing();
-    const numberValue = (value: unknown) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
+    const numberValue = (value: unknown) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    };
     const customersByRegion = new Map<string, typeof customerRows>();
-    for (const customer of customerRows) { if (!customer.region) continue; customersByRegion.set(customer.region, [...(customersByRegion.get(customer.region) ?? []), customer]); }
+    for (const customer of customerRows) {
+      if (!customer.region) continue;
+      customersByRegion.set(customer.region, [
+        ...(customersByRegion.get(customer.region) ?? []),
+        customer,
+      ]);
+    }
     const complaintsBySite = new Map<number, number>();
-    for (const complaint of complaintRows) if (complaint.siteId) complaintsBySite.set(complaint.siteId, (complaintsBySite.get(complaint.siteId) ?? 0) + 1);
-    const kpiBySite = new Map(kpiRows.flatMap(row => { const congestion = numberValue(row.congestion); return congestion === null ? [] : [[row.siteId, congestion] as const]; }));
-    const fiberByRegion = new Map(fiberRows.flatMap(row => { const availability = numberValue(row.availability); return row.region && availability !== null ? [[row.region, availability] as const] : []; }));
+    for (const complaint of complaintRows)
+      if (complaint.siteId)
+        complaintsBySite.set(
+          complaint.siteId,
+          (complaintsBySite.get(complaint.siteId) ?? 0) + 1
+        );
+    const kpiBySite = new Map(
+      kpiRows.flatMap(row => {
+        const congestion = numberValue(row.congestion);
+        return congestion === null ? [] : [[row.siteId, congestion] as const];
+      })
+    );
+    const fiberByRegion = new Map(
+      fiberRows.flatMap(row => {
+        const availability = numberValue(row.availability);
+        return row.region && availability !== null
+          ? [[row.region, availability] as const]
+          : [];
+      })
+    );
     const inputs = campaignRows.flatMap(campaign => {
       const region = campaign.region;
-      const site = region ? siteRows.find(item => (item.region ?? item.name) === region) : undefined;
-      const regionalCustomers = region ? customersByRegion.get(region) ?? [] : [];
+      const site = region
+        ? siteRows.find(item => (item.region ?? item.name) === region)
+        : undefined;
+      const regionalCustomers = region
+        ? (customersByRegion.get(region) ?? [])
+        : [];
       const congestion = site ? kpiBySite.get(site.id) : undefined;
       const latitude = site ? numberValue(site.latitude) : null;
       const longitude = site ? numberValue(site.longitude) : null;
-      if (!region || !site || !regionalCustomers.length || congestion === undefined || latitude === null || longitude === null) return [];
-      const churnValues = regionalCustomers.flatMap(item => { const value = numberValue(item.churnRisk); return value === null ? [] : [value]; });
-      const avgChurn = churnValues.length ? Number((churnValues.reduce((sum, value) => sum + value, 0) / churnValues.length).toFixed(1)) : null;
+      if (
+        !region ||
+        !site ||
+        !regionalCustomers.length ||
+        congestion === undefined ||
+        latitude === null ||
+        longitude === null
+      )
+        return [];
+      const churnValues = regionalCustomers.flatMap(item => {
+        const value = numberValue(item.churnRisk);
+        return value === null ? [] : [value];
+      });
+      const avgChurn = churnValues.length
+        ? Number(
+            (
+              churnValues.reduce((sum, value) => sum + value, 0) /
+              churnValues.length
+            ).toFixed(1)
+          )
+        : null;
       const complaintCount = complaintsBySite.get(site.id) ?? 0;
-      return [{ id: String(campaign.id), name: campaign.name, region, status: campaign.status ?? "Unmapped status", budget: numberValue(campaign.budget) ?? 0, conversionRate: numberValue(campaign.conversionRate) ?? 0, targetArea: region, marketPotential: null, fiveGPotential: null, customerSegment: regionalCustomers[0]?.segment ?? "unknown", churnRisk: avgChurn, complaintRate: Number((complaintCount / regionalCustomers.length * 1000).toFixed(1)), networkReadiness: Math.max(0, 100 - congestion), fiberReadiness: fiberByRegion.get(region) ?? null }];
+      return [
+        {
+          id: String(campaign.id),
+          name: campaign.name,
+          region,
+          status: campaign.status ?? "Unmapped status",
+          budget: numberValue(campaign.budget) ?? 0,
+          conversionRate: numberValue(campaign.conversionRate) ?? 0,
+          targetArea: region,
+          marketPotential: null,
+          fiveGPotential: null,
+          customerSegment: regionalCustomers[0]?.segment ?? "unknown",
+          churnRisk: avgChurn,
+          complaintRate: Number(
+            ((complaintCount / regionalCustomers.length) * 1000).toFixed(1)
+          ),
+          networkReadiness: Math.max(0, 100 - congestion),
+          fiberReadiness: fiberByRegion.get(region) ?? null,
+        },
+      ];
     });
     return assembleMarketingOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Marketing operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Marketing operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticMarketing();
   }
 }
 
-
 export async function getPersistedBusinessRevenueOperations() {
+  if (isDemoMode()) return buildSyntheticBusinessRevenue();
   const db = await getDb();
   if (!db) return buildSyntheticBusinessRevenue();
   try {
-    const [revenueRows, customerRows, complaintRows, siteRows, kpiRows, salesRows] = await Promise.all([
+    const [
+      revenueRows,
+      customerRows,
+      complaintRows,
+      siteRows,
+      kpiRows,
+      salesRows,
+    ] = await Promise.all([
       db.select().from(revenues),
-      db.select({ id: customers.id, region: customers.region, segment: customers.segment, churnRisk: customers.churnRisk }).from(customers),
+      db
+        .select({
+          id: customers.id,
+          region: customers.region,
+          segment: customers.segment,
+          churnRisk: customers.churnRisk,
+        })
+        .from(customers),
       db.select({ siteId: complaints.siteId }).from(complaints),
-      db.select({ id: sites.id, name: sites.name, region: sites.region }).from(sites),
-      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})` }).from(networkKpis).groupBy(networkKpis.siteId),
-      db.select({ region: salesOpportunities.region, value: sql<string>`sum(${salesOpportunities.value})` }).from(salesOpportunities).groupBy(salesOpportunities.region),
+      db
+        .select({ id: sites.id, name: sites.name, region: sites.region })
+        .from(sites),
+      db
+        .select({
+          siteId: networkKpis.siteId,
+          congestion: sql<string>`avg(${networkKpis.congestion})`,
+        })
+        .from(networkKpis)
+        .groupBy(networkKpis.siteId),
+      db
+        .select({
+          region: salesOpportunities.region,
+          value: sql<string>`sum(${salesOpportunities.value})`,
+        })
+        .from(salesOpportunities)
+        .groupBy(salesOpportunities.region),
     ]);
     if (!revenueRows.length) return buildSyntheticBusinessRevenue();
-    const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
+    const num = (value: unknown, fallback = 0) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    };
     const customersByRegion = new Map<string, typeof customerRows>();
-    for (const customer of customerRows) { const key = customer.region ?? "Unmapped region"; customersByRegion.set(key, [...(customersByRegion.get(key) ?? []), customer]); }
+    for (const customer of customerRows) {
+      const key = customer.region ?? "Unmapped region";
+      customersByRegion.set(key, [
+        ...(customersByRegion.get(key) ?? []),
+        customer,
+      ]);
+    }
     const complaintBySite = new Map<number, number>();
-    for (const complaint of complaintRows) if (complaint.siteId) complaintBySite.set(complaint.siteId, (complaintBySite.get(complaint.siteId) ?? 0) + 1);
-    const kpiBySite = new Map(kpiRows.flatMap(row => { const congestion = Number(row.congestion); return Number.isFinite(congestion) ? [[row.siteId, congestion] as const] : []; }));
-    const pipelineByRegion = new Map(salesRows.map(row => [row.region ?? "Unmapped region", num(row.value)]));
+    for (const complaint of complaintRows)
+      if (complaint.siteId)
+        complaintBySite.set(
+          complaint.siteId,
+          (complaintBySite.get(complaint.siteId) ?? 0) + 1
+        );
+    const kpiBySite = new Map(
+      kpiRows.flatMap(row => {
+        const congestion = Number(row.congestion);
+        return Number.isFinite(congestion)
+          ? [[row.siteId, congestion] as const]
+          : [];
+      })
+    );
+    const pipelineByRegion = new Map(
+      salesRows.map(row => [row.region ?? "Unmapped region", num(row.value)])
+    );
     const inputs = revenueRows.flatMap(row => {
       const region = row.region ?? "Unmapped region";
       if (row.atRisk === null) return [];
       const site = siteRows.find(item => (item.region ?? item.name) === region);
       const regionalCustomers = customersByRegion.get(region) ?? [];
-      const customersAtRisk = regionalCustomers.filter(item => num(item.churnRisk) >= 6).length;
-      const enterpriseImpact = regionalCustomers.filter(item => item.segment === "enterprise").length;
+      const customersAtRisk = regionalCustomers.filter(
+        item => num(item.churnRisk) >= 6
+      ).length;
+      const enterpriseImpact = regionalCustomers.filter(
+        item => item.segment === "enterprise"
+      ).length;
       const congestion = site ? kpiBySite.get(site.id) : undefined;
       const networkIssue = congestion === undefined ? null : congestion >= 70;
       const revenueAtRisk = num(row.atRisk);
       const salesPipeline = num(pipelineByRegion.get(region));
-      return [{ id: String(row.id), region, period: row.period, revenueAtRisk, customersAtRisk, enterpriseImpact, salesPipeline, revenueOpportunity: null, investmentOpportunity: null, networkHealth: congestion === undefined ? null : Math.max(0, 100 - congestion), networkIssue, action: networkIssue === true ? "Network remediation" : networkIssue === null ? "Network linkage unavailable" : "Protect and grow", status: networkIssue === true ? "Urgent" : networkIssue === null ? "Unmapped" : "Opportunity" }];
+      return [
+        {
+          id: String(row.id),
+          region,
+          period: row.period,
+          revenueAtRisk,
+          customersAtRisk,
+          enterpriseImpact,
+          salesPipeline,
+          revenueOpportunity: null,
+          investmentOpportunity: null,
+          networkHealth:
+            congestion === undefined ? null : Math.max(0, 100 - congestion),
+          networkIssue,
+          action:
+            networkIssue === true
+              ? "Network remediation"
+              : networkIssue === null
+                ? "Network linkage unavailable"
+                : "Protect and grow",
+          status:
+            networkIssue === true
+              ? "Urgent"
+              : networkIssue === null
+                ? "Unmapped"
+                : "Opportunity",
+        },
+      ];
     });
     return assembleBusinessRevenueOperations("persisted", inputs);
   } catch (error) {
-    console.warn("[Database] Business & Revenue operations query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Business & Revenue operations query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticBusinessRevenue();
   }
 }
 
-
 export async function getPersistedPrioritiesOperations() {
+  if (isDemoMode()) return buildSyntheticPriorities();
   const db = await getDb();
   if (!db) return buildSyntheticPriorities();
   try {
-    const [siteRows, kpiRows, customerRows, complaintRows, revenueRows, salesRows, fiberRows] = await Promise.all([
-      db.select({ id: sites.id, name: sites.name, region: sites.region }).from(sites),
-      db.select({ siteId: networkKpis.siteId, congestion: sql<string>`avg(${networkKpis.congestion})`, throughput: sql<string>`avg(${networkKpis.throughputMbps})` }).from(networkKpis).groupBy(networkKpis.siteId),
-      db.select({ region: customers.region, churnRisk: customers.churnRisk }).from(customers),
-      db.select({ siteId: complaints.siteId, severity: complaints.severity, status: complaints.status }).from(complaints),
-      db.select({ region: revenues.region, atRisk: revenues.atRisk }).from(revenues),
-      db.select({ region: salesOpportunities.region, value: salesOpportunities.value }).from(salesOpportunities),
-      db.select({ region: fiberInfrastructure.region, availability: fiberInfrastructure.availability }).from(fiberInfrastructure),
+    const [
+      siteRows,
+      kpiRows,
+      customerRows,
+      complaintRows,
+      revenueRows,
+      salesRows,
+      fiberRows,
+    ] = await Promise.all([
+      db
+        .select({ id: sites.id, name: sites.name, region: sites.region })
+        .from(sites),
+      db
+        .select({
+          siteId: networkKpis.siteId,
+          congestion: sql<string>`avg(${networkKpis.congestion})`,
+          throughput: sql<string>`avg(${networkKpis.throughputMbps})`,
+        })
+        .from(networkKpis)
+        .groupBy(networkKpis.siteId),
+      db
+        .select({ region: customers.region, churnRisk: customers.churnRisk })
+        .from(customers),
+      db
+        .select({
+          siteId: complaints.siteId,
+          severity: complaints.severity,
+          status: complaints.status,
+        })
+        .from(complaints),
+      db
+        .select({ region: revenues.region, atRisk: revenues.atRisk })
+        .from(revenues),
+      db
+        .select({
+          region: salesOpportunities.region,
+          value: salesOpportunities.value,
+        })
+        .from(salesOpportunities),
+      db
+        .select({
+          region: fiberInfrastructure.region,
+          availability: fiberInfrastructure.availability,
+        })
+        .from(fiberInfrastructure),
     ]);
     if (!siteRows.length) return buildSyntheticPriorities();
-    const num = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isFinite(n) ? n : fallback; };
-    const kpiBySite = new Map(kpiRows.flatMap(row => {
-      const congestion = Number(row.congestion);
-      const throughput = Number(row.throughput);
-      return Number.isFinite(congestion) && Number.isFinite(throughput) ? [[row.siteId, { congestion, throughput }] as const] : [];
-    }));
+    const num = (value: unknown, fallback = 0) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const kpiBySite = new Map(
+      kpiRows.flatMap(row => {
+        const congestion = Number(row.congestion);
+        const throughput = Number(row.throughput);
+        return Number.isFinite(congestion) && Number.isFinite(throughput)
+          ? [[row.siteId, { congestion, throughput }] as const]
+          : [];
+      })
+    );
     const customersByRegion = new Map<string, number>();
-    for (const row of customerRows) { const key = row.region ?? "Unmapped region"; if (num(row.churnRisk) >= 6) customersByRegion.set(key, (customersByRegion.get(key) ?? 0) + 1); }
+    for (const row of customerRows) {
+      const key = row.region ?? "Unmapped region";
+      if (num(row.churnRisk) >= 6)
+        customersByRegion.set(key, (customersByRegion.get(key) ?? 0) + 1);
+    }
     const complaintsBySite = new Map<number, number>();
-    for (const row of complaintRows) if (row.siteId && row.status !== "resolved") complaintsBySite.set(row.siteId, (complaintsBySite.get(row.siteId) ?? 0) + 1);
+    for (const row of complaintRows)
+      if (row.siteId && row.status !== "resolved")
+        complaintsBySite.set(
+          row.siteId,
+          (complaintsBySite.get(row.siteId) ?? 0) + 1
+        );
     const revenueByRegion = new Map<string, number>();
-    for (const row of revenueRows) { const key = row.region ?? "Unmapped region"; revenueByRegion.set(key, (revenueByRegion.get(key) ?? 0) + num(row.atRisk)); }
+    for (const row of revenueRows) {
+      const key = row.region ?? "Unmapped region";
+      revenueByRegion.set(
+        key,
+        (revenueByRegion.get(key) ?? 0) + num(row.atRisk)
+      );
+    }
     const pipelineByRegion = new Map<string, number>();
-    for (const row of salesRows) { const key = row.region ?? "Unmapped region"; pipelineByRegion.set(key, (pipelineByRegion.get(key) ?? 0) + num(row.value)); }
+    for (const row of salesRows) {
+      const key = row.region ?? "Unmapped region";
+      pipelineByRegion.set(
+        key,
+        (pipelineByRegion.get(key) ?? 0) + num(row.value)
+      );
+    }
     const fiberByRegion = new Map<string, number>();
-    for (const row of fiberRows) { const key = row.region ?? "Unmapped region"; fiberByRegion.set(key, Math.max(fiberByRegion.get(key) ?? 0, num(row.availability, 0))); }
+    for (const row of fiberRows) {
+      const key = row.region ?? "Unmapped region";
+      fiberByRegion.set(
+        key,
+        Math.max(fiberByRegion.get(key) ?? 0, num(row.availability, 0))
+      );
+    }
     const inputs = siteRows.flatMap(site => {
       const region = site.region ?? site.name;
       const kpi = kpiBySite.get(site.id);
@@ -903,21 +1783,74 @@ export async function getPersistedPrioritiesOperations() {
       const fiber = fiberByRegion.get(region);
       const networkHealth = Math.max(0, 100 - kpi.congestion);
       const items = [] as PriorityInput[];
-      if (kpi.congestion >= 70) items.push({ id: `${site.id}-congestion`, region, issue: "4G congestion", category: "network", score: Math.round(kpi.congestion), severity: kpi.congestion >= 85 ? "critical" : "high", affectedCustomers, revenueRisk, salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Capacity Upgrade", rationale: `${Math.round(kpi.congestion)}% congestion is reducing available headroom.` });
-      if (fiber !== undefined && fiber < 80) items.push({ id: `${site.id}-backhaul`, region, issue: "Poor backhaul", category: "fiber", score: Math.round(100 - fiber), severity: fiber < 65 ? "high" : "medium", affectedCustomers, revenueRisk: Math.round(revenueRisk * 0.55), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Fiber Migration", rationale: `${Math.round(fiber)}% fiber readiness leaves the site exposed to backhaul pressure.` });
-      if (complaintCount >= 3) items.push({ id: `${site.id}-complaints`, region, issue: "High complaints", category: "customer", score: Math.min(100, complaintCount * 8), severity: complaintCount >= 10 ? "high" : "medium", affectedCustomers, revenueRisk: Math.round(revenueRisk * 0.42), salesPipeline: pipelineByRegion.get(region) ?? 0, complaintCount, networkHealth, action: "Network Investigation", rationale: `${complaintCount} open complaints are concentrated around this site.` });
+      if (kpi.congestion >= 70)
+        items.push({
+          id: `${site.id}-congestion`,
+          region,
+          issue: "4G congestion",
+          category: "network",
+          score: Math.round(kpi.congestion),
+          severity: kpi.congestion >= 85 ? "critical" : "high",
+          affectedCustomers,
+          revenueRisk,
+          salesPipeline: pipelineByRegion.get(region) ?? 0,
+          complaintCount,
+          networkHealth,
+          action: "Capacity Upgrade",
+          rationale: `${Math.round(kpi.congestion)}% congestion is reducing available headroom.`,
+        });
+      if (fiber !== undefined && fiber < 80)
+        items.push({
+          id: `${site.id}-backhaul`,
+          region,
+          issue: "Poor backhaul",
+          category: "fiber",
+          score: Math.round(100 - fiber),
+          severity: fiber < 65 ? "high" : "medium",
+          affectedCustomers,
+          revenueRisk: Math.round(revenueRisk * 0.55),
+          salesPipeline: pipelineByRegion.get(region) ?? 0,
+          complaintCount,
+          networkHealth,
+          action: "Fiber Migration",
+          rationale: `${Math.round(fiber)}% fiber readiness leaves the site exposed to backhaul pressure.`,
+        });
+      if (complaintCount >= 3)
+        items.push({
+          id: `${site.id}-complaints`,
+          region,
+          issue: "High complaints",
+          category: "customer",
+          score: Math.min(100, complaintCount * 8),
+          severity: complaintCount >= 10 ? "high" : "medium",
+          affectedCustomers,
+          revenueRisk: Math.round(revenueRisk * 0.42),
+          salesPipeline: pipelineByRegion.get(region) ?? 0,
+          complaintCount,
+          networkHealth,
+          action: "Network Investigation",
+          rationale: `${complaintCount} open complaints are concentrated around this site.`,
+        });
       return items;
     });
-    return inputs.length ? assemblePrioritiesOperations("persisted", inputs) : buildSyntheticPriorities();
+    return inputs.length
+      ? assemblePrioritiesOperations("persisted", inputs)
+      : buildSyntheticPriorities();
   } catch (error) {
-    console.warn("[Database] Priorities query unavailable; using isolated synthetic dataset:", error);
+    console.warn(
+      "[Database] Priorities query unavailable; using isolated synthetic dataset:",
+      error
+    );
     return buildSyntheticPriorities();
   }
 }
 
-
 export async function listAuditLogs(limit = 100) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit);
+  return db
+    .select()
+    .from(auditLogs)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit);
 }

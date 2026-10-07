@@ -114,6 +114,8 @@ function DataSourceConsole() {
   const [lastRunId, setLastRunId] = useState(0);
   const [mappingText, setMappingText] = useState("{}");
   const utils = trpc.useUtils();
+  const { data: dataMode } = trpc.data.mode.useQuery();
+  const setMode = trpc.data.setMode.useMutation({ onSuccess: () => { void utils.data.mode.invalidate(); void utils.auth.me.invalidate(); } });
   const { data: sources, isLoading: sourcesLoading, error: sourcesError, refetch: refetchSources } = trpc.data.sources.useQuery();
   const datasetSources = sources?.filter(source => source.datasetKey === datasetKey) ?? [];
   const { data: runs, isLoading: runsLoading, error: runsError, refetch: refetchRuns } = trpc.data.importRuns.useQuery({ datasetKey });
@@ -170,6 +172,10 @@ function DataSourceConsole() {
   };
   return (
     <div className="standalone-data-console">
+      <section className="data-mode-switcher">
+        <div><span className="section-kicker">ACTIVE DATA LAYER</span><b>{dataMode?.mode === "imported" ? "Imported data" : "Demo data"}</b><small>{dataMode?.mode === "imported" ? "Analytics read from connected/imported records." : "Safe, coherent Jordan demo dataset; no production records are changed."}</small></div>
+        <div className="data-mode-actions"><button type="button" className={dataMode?.mode !== "imported" ? "active" : ""} disabled={setMode.isPending} onClick={() => setMode.mutate({ mode: "demo" })}>Demo data</button><button type="button" className={dataMode?.mode === "imported" ? "active" : ""} disabled={setMode.isPending} onClick={() => setMode.mutate({ mode: "imported" })}>Imported data</button></div>
+      </section>
       <section className="dataset-workspace-selector">
         <div className="module-subhead"><b>Dataset workspace</b><span>Each section has its own source boundary</span></div>
         <label className="dataset-select-label"><span>Choose the dataset you want to load</span><select value={datasetKey} onChange={event => { setDatasetKey(event.target.value); setSchemaPreview([]); setRowErrors([]); setLastRunId(0); }} aria-label="Dataset workspace">{DATASET_DEFINITIONS.map(item => <option value={item.key} key={item.key}>{item.section} · {item.label}</option>)}</select></label>

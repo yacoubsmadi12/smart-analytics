@@ -41,6 +41,7 @@ import { saveImportMapping, updateDataSourceSync } from "./db";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 import { createOperationalAlerts, createReport, type ReportKind } from "./platform-operations";
+import { getDataMode, setDataMode, type DataMode } from "./data-mode";
 
 let systemSettings = { networkImpact: 45, customerImpact: 25, revenueImpact: 30, language: "English", timezone: "Asia/Amman", dataRefreshMinutes: 15, theme: "dark" };
 const alertState = new Map<string, { status: "open" | "acknowledged" | "resolved"; assignee: string | null; updatedAt: string }>();
@@ -276,6 +277,8 @@ export const appRouter = router({
       ),
   }),
   data: router({
+    mode: protectedProcedure.query(({ ctx }) => { adminOnly(ctx.user); return { mode: getDataMode() }; }),
+    setMode: protectedProcedure.input(z.object({ mode: z.enum(["demo", "imported"]) })).mutation(({ ctx, input }) => { adminOnly(ctx.user); return { mode: setDataMode(input.mode as DataMode) }; }),
     sources: protectedProcedure.query(async ({ ctx }) => {
       adminOnly(ctx.user);
       const rows = await listDataSources();
